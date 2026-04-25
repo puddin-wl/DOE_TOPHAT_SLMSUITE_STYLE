@@ -214,6 +214,57 @@ mraf_06 remains rejected: invalid output size and very large derivative peaks.
 
 The old statement that “side_lobe_peak dropped” should now be read as “outside_max dropped.” The stronger conclusion is that `mraf_factor=0.4` removes detectable derivative-based side-lobe peaks at the current smoothing/prominence settings while preserving the best `rms_90` in this small test.
 
+## 2026-04-26 Descending-Edge RTAD-Style Smoke Sweep
+
+Based on the RTAD / descending-edge idea from the 2025 flat-top paper, a preferred explicit interface was added:
+
+```text
+--descending-edge-mode none|raised_cosine
+--descending-edge-width-um
+--descending-edge-end-intensity
+```
+
+This keeps the 13.5% internal industrial-logistic target unchanged, extends a smooth low-intensity raised-cosine tail outside the 13.5% crossing, and keeps the region outside that tail as NaN/free. The old `tail_to_free` path remains available as a legacy alias.
+
+Implementation smoke test:
+
+```powershell
+python run_one.py --n 512 --iterations 2 --method wgs --target industrial_logistic --phase-init quadratic --target-size-50-x-um 330 --target-size-50-y-um 116 --transition-width-13-90-x-um 12 --transition-width-13-90-y-um 16 --mraf-factor 0.4 --descending-edge-mode raised_cosine --descending-edge-width-um 20 --descending-edge-end-intensity 0.03 --out-root artifacts\smoke_descending_edge --variant-name smoke_desc_edge_w20
+```
+
+Small 2048 test run, no 4096:
+
+```powershell
+python run_descending_edge_tests.py --n 2048 --iterations 80 --out-root artifacts\descending_edge_20260426-rtad
+```
+
+Outputs:
+
+```text
+artifacts\descending_edge_20260426-rtad\summary_descending_edge.csv
+artifacts\descending_edge_20260426-rtad\descending_edge_montage.png
+```
+
+Comparison against current base `mraf_factor=0.4`:
+
+```text
+case          output50_x/y    output_tw_x/y  rms90     std_x/std_y    outside_max_x/y  strongest_deriv_xR/yR
+base mraf0.4  334.950/120.079 18.829/21.659 0.018981 0.0585/0.1018 0.0969/0.0500    nan/nan
+edge width 20 332.991/120.577 42.471/21.220 0.084324 0.1071/0.1042 0.3370/0.1898    0.3077/0.1020
+edge width 40  25.499/29.676  27.361/9.862  1.707211 0.7181/0.4969 34.659/57.943   32.661/49.769
+edge width 60  38.252/28.755   6.319/6.159  3.102237 1.1211/0.7620 3.991/18.358    3.543/17.440
+```
+
+Decision:
+
+```text
+The simple raised-cosine descending-edge tail is not an improvement in this configuration.
+20 um remains size-valid but worsens rms_90 and creates derivative-detected side lobes.
+40/60 um are unstable and collapse the output size.
+Keep the interface for future controlled experiments, but do not use descending_edge_mode=raised_cosine as the current best recipe.
+Current best remains: target_size_50_x/y=330/116, transition=12/16, mraf_factor=0.4, feedback_exponent=2.0, descending_edge_mode=none.
+```
+
 ## Current Industrial Transition Check
 
 Best aggressive edge candidate from the first focused 2048 sweep:

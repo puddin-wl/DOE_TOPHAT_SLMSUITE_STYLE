@@ -12,3 +12,12 @@ Plan:
 5. Run only three small 2048 single-variable tests: descending edge tail width 20, 40, 60 um.
 6. Judge results with derivative-based side-lobe metrics and plateau flatness, not old outside maximum alone.
 7. Do not run 4096 and do not expand size precomp.
+
+Outcome of first implementation:
+
+- The explicit `descending_edge_mode=raised_cosine` interface was added and smoke-tested.
+- A three-case 2048 test with widths 20, 40, 60 um was run.
+- Width 20 remained size-valid but worsened `rms_90` and introduced derivative-detected side lobes.
+- Widths 40 and 60 were unstable and collapsed output size.
+- Keep the interface for future controlled experiments, but do not use it as the current best recipe.
+- Current best remains `descending_edge_mode=none`, `mraf_factor=0.4`, `target_size_50=330 x 116 um`, `transition=12/16`.
