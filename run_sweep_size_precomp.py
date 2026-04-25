@@ -25,10 +25,14 @@ SUMMARY_COLUMNS = [
     "rms_90",
     "center_profile_std_x",
     "center_profile_std_y",
-    "side_lobe_peak_x_rel_to_core",
-    "side_lobe_peak_y_rel_to_core",
-    "side_lobe_distance_x_um",
-    "side_lobe_distance_y_um",
+    "outside_max_x_rel_to_core",
+    "outside_max_y_rel_to_core",
+    "outside_max_distance_x_um",
+    "outside_max_distance_y_um",
+    "strongest_side_lobe_peak_x_left_rel_to_core",
+    "strongest_side_lobe_peak_x_right_rel_to_core",
+    "strongest_side_lobe_peak_y_left_rel_to_core",
+    "strongest_side_lobe_peak_y_right_rel_to_core",
 ]
 
 
@@ -81,10 +85,22 @@ def main() -> None:
                 "rms_90": metrics["rms_90"],
                 "center_profile_std_x": metrics["center_profile_std_x"],
                 "center_profile_std_y": metrics["center_profile_std_y"],
-                "side_lobe_peak_x_rel_to_core": metrics["side_lobe_peak_x_rel_to_core"],
-                "side_lobe_peak_y_rel_to_core": metrics["side_lobe_peak_y_rel_to_core"],
-                "side_lobe_distance_x_um": metrics["side_lobe_distance_x_um"],
-                "side_lobe_distance_y_um": metrics["side_lobe_distance_y_um"],
+                "outside_max_x_rel_to_core": metrics["outside_max_x_rel_to_core"],
+                "outside_max_y_rel_to_core": metrics["outside_max_y_rel_to_core"],
+                "outside_max_distance_x_um": metrics["outside_max_distance_x_um"],
+                "outside_max_distance_y_um": metrics["outside_max_distance_y_um"],
+                "strongest_side_lobe_peak_x_left_rel_to_core": metrics[
+                    "strongest_side_lobe_peak_x_left_rel_to_core"
+                ],
+                "strongest_side_lobe_peak_x_right_rel_to_core": metrics[
+                    "strongest_side_lobe_peak_x_right_rel_to_core"
+                ],
+                "strongest_side_lobe_peak_y_left_rel_to_core": metrics[
+                    "strongest_side_lobe_peak_y_left_rel_to_core"
+                ],
+                "strongest_side_lobe_peak_y_right_rel_to_core": metrics[
+                    "strongest_side_lobe_peak_y_right_rel_to_core"
+                ],
             }
             rows.append(row)
             print(
@@ -112,7 +128,7 @@ def main() -> None:
             f"out50={row['output_size_50_x_um']:.3f}x{row['output_size_50_y_um']:.3f}, "
             f"rms90={row['rms_90']:.6g}, "
             f"std={row['center_profile_std_x'] + row['center_profile_std_y']:.6g}, "
-            f"side={row['side_lobe_peak_x_rel_to_core']:.3g}/{row['side_lobe_peak_y_rel_to_core']:.3g}"
+            f"outside_max={row['outside_max_x_rel_to_core']:.3g}/{row['outside_max_y_rel_to_core']:.3g}"
         )
 
 

@@ -173,9 +173,14 @@ def main() -> None:
     print(f"rms_50_reference: {summary['metrics']['rms_50_reference']:.6g}")
     print(f"efficiency_13p5: {summary['metrics']['efficiency_13p5']:.6g}")
     print(
-        "side_lobe_peak_rel_x/y: "
-        f"{summary['metrics']['side_lobe_peak_x_rel_to_core']:.6g} / "
-        f"{summary['metrics']['side_lobe_peak_y_rel_to_core']:.6g}"
+        "outside_max_rel_x/y: "
+        f"{summary['metrics']['outside_max_x_rel_to_core']:.6g} / "
+        f"{summary['metrics']['outside_max_y_rel_to_core']:.6g}"
+    )
+    print(
+        "strongest_derivative_side_lobe_x_right/y_right: "
+        f"{summary['metrics']['strongest_side_lobe_peak_x_right_rel_to_core']:.6g} / "
+        f"{summary['metrics']['strongest_side_lobe_peak_y_right_rel_to_core']:.6g}"
     )
     print(
         "center_profile_std_x/y: "

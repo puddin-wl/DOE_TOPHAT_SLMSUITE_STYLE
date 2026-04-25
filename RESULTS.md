@@ -161,6 +161,59 @@ Recommended next command, still 2048 only:
 python run_one.py --n 2048 --iterations 100 --method wgs --target industrial_logistic --phase-init quadratic --transition-width-13-90-x-um 12 --transition-width-13-90-y-um 16 --mraf-factor 0.4 --feedback-exponent 2.0 --target-size-50-x-um 330 --target-size-50-y-um 116
 ```
 
+## 2026-04-26 Derivative-Based Side-Lobe Metric Fix
+
+The previous `side_lobe_peak_*` metric was risky because it simply used the maximum value outside the 13.5% crossing. That can mislabel a monotonic tail, edge shoulder, or small ripple as a side lobe. Going forward, use derivative-based side-lobe metrics for conclusions. The old max-style measurement is retained only as `outside_max_x/y_rel_to_core`; deprecated `side_lobe_peak_*` aliases point to that outside maximum only for script compatibility.
+
+New side-lobe logic:
+
+```text
+1. Normalize x/y center profiles by core mean.
+2. Smooth the profile with a Gaussian kernel.
+3. Interpolate left/right or lower/upper 13.5% crossings.
+4. Start searching after a small crossing margin.
+5. Detect local maxima using first-derivative positive-to-negative behavior.
+6. Reject tiny ripple peaks using a prominence threshold.
+```
+
+Current detection settings written into `metrics.json`:
+
+```text
+side_lobe_smoothing_sigma_um       5.0
+side_lobe_smoothing_sigma_px       2.0
+side_lobe_crossing_margin_um       5.0
+side_lobe_prominence_threshold     0.02
+```
+
+The existing `single_knob_20260426-0000` artifacts were re-analyzed without rerunning the DOE solver. Updated files:
+
+```text
+artifacts\single_knob_20260426-0000\summary_single_knob_derivative_metrics.csv
+artifacts\single_knob_20260426-0000\edge_spike_derivative_montage.png
+```
+
+Derivative-based comparison:
+
+```text
+case             output50_x/y    rms90     outside_max_x/y  strongest_deriv_xL/xR  strongest_deriv_yL/yR
+base             333.849/119.568 0.019471 0.1789/0.1100    0.1593/0.1593        0.0998/0.0998
+transition_14_18 nan/nan         3.169267 23.882/3.531     21.229/4.240         2.913/3.320
+feedback_exp_08  333.624/119.330 0.021443 0.1353/0.0609    0.1312/0.1312        nan/nan
+mraf_04          334.950/120.079 0.018981 0.0969/0.0500    nan/nan              nan/nan
+mraf_06           52.596/22.545  4.349864 35.651/56.395    33.113/31.777       49.723/53.045
+```
+
+Updated interpretation:
+
+```text
+transition_14_18 remains rejected: invalid size crossing and very large derivative peaks.
+feedback_exp_08 reduces outside_max compared with base, but still has x derivative peaks around 0.131 and slightly worse rms_90.
+mraf_04 is still the best candidate: outside_max drops and no derivative-based local side-lobe peak exceeds the current prominence threshold on x or y.
+mraf_06 remains rejected: invalid output size and very large derivative peaks.
+```
+
+The old statement that “side_lobe_peak dropped” should now be read as “outside_max dropped.” The stronger conclusion is that `mraf_factor=0.4` removes detectable derivative-based side-lobe peaks at the current smoothing/prominence settings while preserving the best `rms_90` in this small test.
+
 ## Current Industrial Transition Check
 
 Best aggressive edge candidate from the first focused 2048 sweep:

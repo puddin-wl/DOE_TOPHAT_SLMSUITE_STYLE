@@ -18,6 +18,7 @@ from .metrics import (
     _transition_width,
     compute_metrics,
     roi_normalized_intensity,
+    side_lobe_analysis_for_profile,
     target_intensity,
 )
 from .targets import TargetResult
@@ -570,53 +571,67 @@ def _save_edge_spike_diagnostic(
     y_profile = norm[:, cx]
     x_target = target_i[cy, :]
     y_target = target_i[:, cx]
-    x_edge_13 = _center_connected_edges(grid.x_um_focus, x_profile, config.free_region_threshold_intensity)
-    y_edge_13 = _center_connected_edges(grid.y_um_focus, y_profile, config.free_region_threshold_intensity)
-    x_side_lobe = _side_lobe_for_profile(grid.x_um_focus, x_profile, x_edge_13, config.side_lobe_search_width_um)
-    y_side_lobe = _side_lobe_for_profile(grid.y_um_focus, y_profile, y_edge_13, config.side_lobe_search_width_um)
+    x_analysis = side_lobe_analysis_for_profile(
+        grid.x_um_focus,
+        x_profile,
+        config.free_region_threshold_intensity,
+        config.side_lobe_search_width_um,
+        config.side_lobe_smoothing_sigma_um,
+        config.side_lobe_crossing_margin_um,
+        config.side_lobe_prominence_threshold,
+    )
+    y_analysis = side_lobe_analysis_for_profile(
+        grid.y_um_focus,
+        y_profile,
+        config.free_region_threshold_intensity,
+        config.side_lobe_search_width_um,
+        config.side_lobe_smoothing_sigma_um,
+        config.side_lobe_crossing_margin_um,
+        config.side_lobe_prominence_threshold,
+    )
 
-    fig, axes = plt.subplots(2, 2, figsize=(12.0, 7.8), dpi=160)
+    fig, axes = plt.subplots(4, 2, figsize=(12.0, 10.5), dpi=160, height_ratios=[3.0, 1.0, 3.0, 1.0])
     _draw_spike_zoom_axis(
         axes[0, 0],
+        axes[1, 0],
         config,
         grid.x_um_focus,
         x_profile,
         x_target,
-        x_edge_13,
-        x_side_lobe,
+        x_analysis,
         "x left edge zoom",
         "left",
     )
     _draw_spike_zoom_axis(
         axes[0, 1],
+        axes[1, 1],
         config,
         grid.x_um_focus,
         x_profile,
         x_target,
-        x_edge_13,
-        x_side_lobe,
+        x_analysis,
         "x right edge zoom",
         "right",
     )
     _draw_spike_zoom_axis(
-        axes[1, 0],
+        axes[2, 0],
+        axes[3, 0],
         config,
         grid.y_um_focus,
         y_profile,
         y_target,
-        y_edge_13,
-        y_side_lobe,
+        y_analysis,
         "y lower edge zoom",
         "left",
     )
     _draw_spike_zoom_axis(
-        axes[1, 1],
+        axes[2, 1],
+        axes[3, 1],
         config,
         grid.y_um_focus,
         y_profile,
         y_target,
-        y_edge_13,
-        y_side_lobe,
+        y_analysis,
         "y upper edge zoom",
         "right",
     )
@@ -627,10 +642,11 @@ def _save_edge_spike_diagnostic(
         f"tail_to_free={config.tail_to_free}\n"
         f"output_size_50_x/y={metrics['output_size_50_x_um']:.1f}/{metrics['output_size_50_y_um']:.1f} um, "
         f"rms_90={metrics['rms_90']:.4g}, "
-        f"side_lobe_peak_rel_x/y={metrics['side_lobe_peak_x_rel_to_core']:.3g}/{metrics['side_lobe_peak_y_rel_to_core']:.3g}"
+        f"outside_max_x/y={metrics['outside_max_x_rel_to_core']:.3g}/{metrics['outside_max_y_rel_to_core']:.3g}, "
+        f"strongest_deriv_xR/yR={metrics['strongest_side_lobe_peak_x_right_rel_to_core']:.3g}/{metrics['strongest_side_lobe_peak_y_right_rel_to_core']:.3g}"
     )
     fig.suptitle(title, fontsize=10)
-    fig.tight_layout(rect=[0, 0, 1, 0.92])
+    fig.tight_layout(rect=[0, 0, 1, 0.90])
     fig.savefig(path)
     plt.close(fig)
 
@@ -645,15 +661,16 @@ def _transition_setting(config: DOEConfig, axis_label: str) -> float:
 
 def _draw_spike_zoom_axis(
     ax: plt.Axes,
+    derivative_ax: plt.Axes,
     config: DOEConfig,
     coord_um: np.ndarray,
     profile: np.ndarray,
     target_profile: np.ndarray,
-    edge_13: tuple[float, float, float],
-    side_lobe: dict,
+    analysis: dict,
     title: str,
     side: str,
 ) -> None:
+    edge_13 = analysis["edge_13"]
     edge = edge_13[0] if side == "left" else edge_13[1]
     if np.isfinite(edge):
         view = (coord_um >= edge - 80.0) & (coord_um <= edge + 120.0)
@@ -661,23 +678,31 @@ def _draw_spike_zoom_axis(
         view = np.abs(coord_um) <= config.plot_crop_um
 
     ax.plot(coord_um[view], profile[view], lw=1.5, label="output profile")
+    ax.plot(coord_um[view], analysis["smoothed_profile"][view], lw=1.0, alpha=0.75, label="smoothed output")
     ax.plot(coord_um[view], target_profile[view], lw=1.1, alpha=0.78, label="target profile")
     _draw_threshold_lines(ax, config)
 
     if np.isfinite(edge):
         ax.axvline(edge, color="tab:purple", lw=1.0, ls="--", alpha=0.75, label="output 13.5% crossing")
 
-    if side_lobe.get("side") == side and np.isfinite(side_lobe.get("position_um", np.nan)):
-        ax.scatter(
-            [side_lobe["position_um"]],
-            [side_lobe["peak_rel"]],
-            s=46,
-            marker="x",
-            color="tab:orange",
-            lw=1.8,
-            zorder=5,
-            label="side_lobe_peak",
-        )
+    outside = analysis[f"outside_max_{side}"]
+    first = analysis[f"derivative_{side}"]["first"]
+    strongest = analysis[f"derivative_{side}"]["strongest"]
+    _scatter_lobe(ax, outside, "x", "tab:orange", "outside_max")
+    _scatter_lobe(ax, first, "o", "tab:blue", "first derivative side lobe")
+    _scatter_lobe(ax, strongest, "*", "tab:red", "strongest derivative side lobe")
+
+    derivative_ax.plot(coord_um[view], analysis["derivative"][view], lw=1.0, color="0.25", label="dI/dx smoothed")
+    derivative_ax.axhline(0.0, color="0.65", lw=0.8)
+    if np.isfinite(edge):
+        derivative_ax.axvline(edge, color="tab:purple", lw=0.9, ls="--", alpha=0.65)
+    for lobe, marker, color in ((first, "o", "tab:blue"), (strongest, "*", "tab:red")):
+        if np.isfinite(lobe["position_um"]):
+            derivative_value = np.interp(lobe["position_um"], coord_um, analysis["derivative"])
+            derivative_ax.scatter([lobe["position_um"]], [derivative_value], marker=marker, color=color, s=24, zorder=5)
+    derivative_ax.set_xlabel("position (um)")
+    derivative_ax.set_ylabel("dI/dx")
+    derivative_ax.grid(alpha=0.25)
 
     ax.set_xlabel("position (um)")
     ax.set_ylabel("I / core mean")
@@ -685,3 +710,18 @@ def _draw_spike_zoom_axis(
     ax.set_ylim(bottom=0.0)
     ax.grid(alpha=0.25)
     ax.legend(frameon=False, fontsize=7)
+
+
+def _scatter_lobe(ax: plt.Axes, lobe: dict, marker: str, color: str, label: str) -> None:
+    if not (np.isfinite(lobe.get("position_um", np.nan)) and np.isfinite(lobe.get("peak_rel", np.nan))):
+        return
+    ax.scatter(
+        [lobe["position_um"]],
+        [lobe["peak_rel"]],
+        s=54 if marker == "*" else 34,
+        marker=marker,
+        color=color,
+        lw=1.2,
+        zorder=5,
+        label=label,
+    )

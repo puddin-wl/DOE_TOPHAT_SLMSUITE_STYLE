@@ -33,6 +33,9 @@ class DOEConfig:
     metric_core_level: float = 0.95
     metric_uniform_level: float = 0.90
     side_lobe_search_width_um: float = 250.0
+    side_lobe_smoothing_sigma_um: float = 5.0
+    side_lobe_crossing_margin_um: float = 5.0
+    side_lobe_prominence_threshold: float = 0.02
     core_width_um: float = 320.0
     core_height_um: float = 100.0
     edge_width_x_um: float = 20.0
