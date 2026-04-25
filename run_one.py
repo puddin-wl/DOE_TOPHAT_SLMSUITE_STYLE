@@ -1,0 +1,120 @@
+from __future__ import annotations
+
+import argparse
+from pathlib import Path
+
+import numpy as np
+
+from src.artifacts import save_arrays, timestamped_root, variant_dir, write_json
+from src.config import DOEConfig, update_config
+from src.grids import gaussian_aperture_amplitude, lens_pupil_mask, load_bgdata_summary, make_grid
+from src.metrics import compute_metrics
+from src.mraf import solve_phase
+from src.phase_init import initial_phase
+from src.plotting import save_all_plots
+from src.propagation import Propagator
+from src.targets import make_target
+
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="Run one continuous-phase DOE solve.")
+    parser.add_argument("--n", type=int, default=None)
+    parser.add_argument("--focus-sampling-um", type=float, default=None)
+    parser.add_argument("--iterations", type=int, default=None)
+    parser.add_argument("--method", choices=["gs", "mraf", "wgs-leonardo"], default=None)
+    parser.add_argument("--target", choices=["hard", "soft"], default=None)
+    parser.add_argument(
+        "--phase-init",
+        choices=["random", "quadratic", "astigmatic_quadratic", "conical_like"],
+        default=None,
+    )
+    parser.add_argument("--seed", type=int, default=None)
+    parser.add_argument("--mraf-factor", type=float, default=None)
+    parser.add_argument("--target-power-fraction", type=float, default=None)
+    parser.add_argument("--feedback-exponent", type=float, default=None)
+    parser.add_argument("--free-region-width-x-um", type=float, default=None)
+    parser.add_argument("--free-region-width-y-um", type=float, default=None)
+    parser.add_argument("--initial-phase-file", default=None)
+    parser.add_argument("--out-root", default=None)
+    parser.add_argument("--variant-name", default=None)
+    return parser.parse_args()
+
+
+def run_variant(config: DOEConfig, out_dir: Path) -> dict:
+    grid = make_grid(config)
+    input_amplitude, aperture = gaussian_aperture_amplitude(config, grid)
+    target = make_target(config, grid)
+    pupil = lens_pupil_mask(config, grid)
+    propagator = Propagator(config, grid, pupil)
+    initial_phase_file = getattr(config, "initial_phase_file", None)
+    if initial_phase_file:
+        phase0 = np.load(initial_phase_file)
+        if phase0.shape != (config.n, config.n):
+            raise ValueError(
+                f"Initial phase shape {phase0.shape} does not match grid {(config.n, config.n)}"
+            )
+    else:
+        phase0 = initial_phase(config, grid, np.random.default_rng(config.seed))
+
+    result = solve_phase(config, input_amplitude, phase0, target.amplitude, propagator)
+    metrics = compute_metrics(config, grid, target, result.focal_intensity)
+
+    config_payload = config.to_dict()
+    if initial_phase_file:
+        config_payload["initial_phase_file"] = str(initial_phase_file)
+    config_payload["beam_shape_diagnostic"] = load_bgdata_summary(config.beam_shape_file, Path.cwd())
+    config_payload["aperture_nonzero_pixels"] = int(np.count_nonzero(aperture))
+    config_payload["aperture_outside_amplitude_max"] = float(
+        np.max(np.abs(input_amplitude[~aperture])) if np.any(~aperture) else 0.0
+    )
+    config_payload["mraf_noise_region_forced_zero"] = bool(
+        any(step["noise_region_forced_zero"] for step in result.history)
+    )
+    config_payload["last_iteration"] = result.history[-1] if result.history else {}
+
+    write_json(out_dir / "config.json", config_payload)
+    write_json(out_dir / "metrics.json", metrics)
+    save_arrays(out_dir, result.phase, target.amplitude, result.focal_intensity)
+    save_all_plots(out_dir, config, grid, target, result.phase, result.focal_intensity, aperture)
+
+    return {"config": config_payload, "metrics": metrics, "out_dir": str(out_dir)}
+
+
+def main() -> None:
+    args = parse_args()
+    config = update_config(
+        DOEConfig(),
+        n=args.n,
+        focus_sampling_um=args.focus_sampling_um,
+        iterations=args.iterations,
+        method=args.method,
+        target=args.target,
+        phase_init=args.phase_init,
+        seed=args.seed,
+        mraf_factor=args.mraf_factor,
+        target_power_fraction=args.target_power_fraction,
+        feedback_exponent=args.feedback_exponent,
+        free_region_width_x_um=args.free_region_width_x_um,
+        free_region_width_y_um=args.free_region_width_y_um,
+    )
+    if args.initial_phase_file:
+        config.initial_phase_file = args.initial_phase_file
+    name = args.variant_name or f"{config.method}_{config.target}_{config.phase_init}"
+    root = Path(args.out_root) if args.out_root else timestamped_root()
+    out_dir = variant_dir(root, name)
+    summary = run_variant(config, out_dir)
+    print(f"saved: {summary['out_dir']}")
+    print(f"compute_window_mm: {summary['config']['compute_window_mm']:.6f}")
+    print(f"doe_sampling_um: {summary['config']['doe_sampling_mm'] * 1000.0:.6f}")
+    print(f"focus_sampling_um: {summary['config']['focus_sampling_um']:.6f}")
+    print(f"rms_in_roi: {summary['metrics']['rms_in_roi']:.6g}")
+    print(f"efficiency_in_roi: {summary['metrics']['efficiency_in_roi']:.6g}")
+    print(
+        "center_profile_std_x/y: "
+        f"{summary['metrics']['center_profile_std_x']:.6g} / "
+        f"{summary['metrics']['center_profile_std_y']:.6g}"
+    )
+
+
+if __name__ == "__main__":
+    main()
