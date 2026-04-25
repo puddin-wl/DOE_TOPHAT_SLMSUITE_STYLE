@@ -48,3 +48,39 @@ Outputs:
 - Compare first and strongest derivative side-lobe peaks per case and setting.
 - Keep `outside_max` as reference only.
 - Decide whether `mraf_04` no-detected-lobe result is robust or only caused by the prominence threshold.
+
+## Next Plan: MRAF Fine Sweep
+
+Date: 2026-04-26
+
+Scope:
+- Run a small 2048-only DOE sweep.
+- Do not run 4096.
+- Do not continue descending-edge tests.
+- Do not implement guard band.
+
+Fixed parameters:
+- `n=2048`
+- `iterations=100`
+- `method=wgs`
+- `target=industrial_logistic`
+- `phase_init=quadratic`
+- `target_size_50_x/y=330/116 um`
+- `transition_width_13_90_x/y=12/16 um`
+- `feedback_exponent=2.0`
+- `descending_edge_mode=none`
+
+Sweep:
+- `mraf_factor = [0.35, 0.375, 0.40, 0.425, 0.45]`
+
+Outputs:
+- `artifacts/mraf_fine_<timestamp>/summary_mraf_fine.csv`
+- `edge_spike_mraf_fine_montage.png`
+- `center_profile_mraf_fine_montage.png`
+- `derivative_lobe_mraf_fine_montage.png` if practical.
+
+Selection reporting:
+1. Closest output size to 330 x 120.
+2. Lowest `rms_90`.
+3. Lowest derivative side-lobe.
+4. Recommended next base case.
