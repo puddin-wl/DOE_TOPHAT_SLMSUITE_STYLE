@@ -21,3 +21,30 @@ Outcome of first implementation:
 - Widths 40 and 60 were unstable and collapsed output size.
 - Keep the interface for future controlled experiments, but do not use it as the current best recipe.
 - Current best remains `descending_edge_mode=none`, `mraf_factor=0.4`, `target_size_50=330 x 116 um`, `transition=12/16`.
+
+## Next Plan: Derivative Side-Lobe Sensitivity Re-Analysis
+
+Date: 2026-04-26
+
+Scope:
+- Do not run new DOE simulations.
+- Do not run 4096.
+- Stop raised-cosine descending-edge sweep.
+- Re-analyze existing artifacts only.
+
+Cases:
+1. `artifacts/size_precomp/20260425-231857/wgs_size50_x330_y116` as `base_size_precomp_x330_y116`.
+2. `artifacts/single_knob_20260426-0000/feedback_exp_08`.
+3. `artifacts/single_knob_20260426-0000/mraf_04`.
+4. `artifacts/single_knob_20260426-0000/mraf_06` as reject control.
+
+Sensitivity grid:
+- `side_lobe_smoothing_sigma_um = [2.5, 5.0, 7.5]`
+- `side_lobe_prominence_threshold = [0.01, 0.02, 0.03]`
+- `side_lobe_crossing_margin_um = [2.5, 5.0]`
+
+Outputs:
+- `summary_lobe_sensitivity.csv`
+- Compare first and strongest derivative side-lobe peaks per case and setting.
+- Keep `outside_max` as reference only.
+- Decide whether `mraf_04` no-detected-lobe result is robust or only caused by the prominence threshold.
