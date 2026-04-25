@@ -16,6 +16,7 @@ from .metrics import (
     _center_connected_edges,
     _side_lobe_for_profile,
     _transition_width,
+    compute_metrics,
     roi_normalized_intensity,
     target_intensity,
 )
@@ -88,6 +89,43 @@ def _save_near_image(
     plt.close()
 
 
+def _save_near_image_with_beam_guides(
+    path: Path,
+    config: DOEConfig,
+    image: np.ndarray,
+    x_mm: np.ndarray,
+    y_mm: np.ndarray,
+    title: str,
+    cmap: str = "viridis",
+    vmin: float | None = None,
+    vmax: float | None = None,
+) -> None:
+    fig, ax = plt.subplots(figsize=(6.2, 5.4), dpi=160)
+    extent = [float(x_mm[0]), float(x_mm[-1]), float(y_mm[0]), float(y_mm[-1])]
+    im = ax.imshow(
+        image,
+        extent=extent,
+        origin="lower",
+        cmap=cmap,
+        aspect="equal",
+        interpolation="nearest",
+        vmin=vmin,
+        vmax=vmax,
+    )
+    beam_radius = config.gaussian_1e2_diameter_mm / 2.0
+    aperture_radius = config.aperture_diameter_mm / 2.0
+    ax.add_patch(Circle((0.0, 0.0), beam_radius, fill=False, color="white", lw=1.4, ls="-", label="5 mm 1/e^2 intensity circle"))
+    ax.add_patch(Circle((0.0, 0.0), aperture_radius, fill=False, color="black", lw=1.2, ls="--", label="15 mm DOE clear aperture"))
+    ax.set_xlabel("x (mm)")
+    ax.set_ylabel("y (mm)")
+    ax.set_title(title)
+    ax.legend(loc="upper right", framealpha=0.78, fontsize=8)
+    fig.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
+    fig.tight_layout()
+    fig.savefig(path)
+    plt.close(fig)
+
+
 def _focus_crop(config: DOEConfig, grid: Grid, data: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     ix = _crop_indices(grid.x_um_focus, config.plot_crop_um)
     iy = _crop_indices(grid.y_um_focus, config.plot_crop_um)
@@ -120,19 +158,21 @@ def _save_input_diagnostics(
     intensity_rel = amp_rel**2
 
     amp_crop, x_mm, y_mm = _near_crop(config, grid, amp_rel)
-    _save_near_image(
+    _save_near_image_with_beam_guides(
         out_dir / "input_amplitude.png",
+        config,
         amp_crop,
         x_mm,
         y_mm,
-        "input amplitude / max: 5 mm 1/e^2 intensity Gaussian clipped by 15 mm aperture",
+        "input amplitude / max: 5 mm 1/e^2 Gaussian; 15 mm aperture clips it",
         vmin=0.0,
         vmax=1.0,
     )
 
     intensity_crop, _, _ = _near_crop(config, grid, intensity_rel)
-    _save_near_image(
+    _save_near_image_with_beam_guides(
         out_dir / "input_intensity.png",
+        config,
         intensity_crop,
         x_mm,
         y_mm,
@@ -171,7 +211,7 @@ def _save_phase_with_beam_overlay(
     ax.add_patch(Circle((0.0, 0.0), aperture_radius, fill=False, color="black", lw=1.2, ls="--", label="15 mm clear aperture"))
     ax.set_xlabel("x (mm)")
     ax.set_ylabel("y (mm)")
-    ax.set_title("DOE phase: 5 mm Gaussian beam within 15 mm aperture")
+    ax.set_title("phase is defined over 15 mm DOE clear aperture;\ninput illumination is 5 mm 1/e^2 Gaussian")
     ax.legend(loc="upper right", framealpha=0.78, fontsize=8)
     fig.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
     fig.tight_layout()
@@ -213,7 +253,7 @@ def save_all_plots(
         np.ma.masked_invalid(phase_crop),
         grid.x_mm[ix] * 1000.0,
         grid.y_mm[iy] * 1000.0,
-        "DOE phase inside 15 mm clear aperture;\nilluminated mainly by 5 mm Gaussian beam",
+        "phase is defined over 15 mm DOE clear aperture;\ninput illumination is 5 mm 1/e^2 Gaussian",
         cmap="twilight",
         vmin=0.0,
         vmax=2.0 * np.pi,
@@ -249,6 +289,7 @@ def save_all_plots(
         annotate_crossings=True,
     )
     _save_edge_diagnostics(out_dir / "edge_diagnostic_profiles.png", config, grid, target, focal_intensity)
+    _save_edge_spike_diagnostic(out_dir / "edge_spike_diagnostic.png", config, grid, target, focal_intensity)
 
 
 def _save_profiles(
@@ -509,3 +550,138 @@ def _draw_edge_axis(
     ax.set_ylim(bottom=0.0)
     ax.grid(alpha=0.25)
     ax.legend(frameon=False, fontsize=8)
+
+
+def _save_edge_spike_diagnostic(
+    path: Path,
+    config: DOEConfig,
+    grid: Grid,
+    target: TargetResult,
+    intensity: np.ndarray,
+) -> None:
+    cx = grid.n // 2
+    cy = grid.n // 2
+    reference = _profile_reference_intensity(target, intensity)
+    norm = intensity / reference if reference > 0 else intensity
+    target_i = target_intensity(target)
+    metrics = compute_metrics(config, grid, target, intensity)
+
+    x_profile = norm[cy, :]
+    y_profile = norm[:, cx]
+    x_target = target_i[cy, :]
+    y_target = target_i[:, cx]
+    x_edge_13 = _center_connected_edges(grid.x_um_focus, x_profile, config.free_region_threshold_intensity)
+    y_edge_13 = _center_connected_edges(grid.y_um_focus, y_profile, config.free_region_threshold_intensity)
+    x_side_lobe = _side_lobe_for_profile(grid.x_um_focus, x_profile, x_edge_13, config.side_lobe_search_width_um)
+    y_side_lobe = _side_lobe_for_profile(grid.y_um_focus, y_profile, y_edge_13, config.side_lobe_search_width_um)
+
+    fig, axes = plt.subplots(2, 2, figsize=(12.0, 7.8), dpi=160)
+    _draw_spike_zoom_axis(
+        axes[0, 0],
+        config,
+        grid.x_um_focus,
+        x_profile,
+        x_target,
+        x_edge_13,
+        x_side_lobe,
+        "x left edge zoom",
+        "left",
+    )
+    _draw_spike_zoom_axis(
+        axes[0, 1],
+        config,
+        grid.x_um_focus,
+        x_profile,
+        x_target,
+        x_edge_13,
+        x_side_lobe,
+        "x right edge zoom",
+        "right",
+    )
+    _draw_spike_zoom_axis(
+        axes[1, 0],
+        config,
+        grid.y_um_focus,
+        y_profile,
+        y_target,
+        y_edge_13,
+        y_side_lobe,
+        "y lower edge zoom",
+        "left",
+    )
+    _draw_spike_zoom_axis(
+        axes[1, 1],
+        config,
+        grid.y_um_focus,
+        y_profile,
+        y_target,
+        y_edge_13,
+        y_side_lobe,
+        "y upper edge zoom",
+        "right",
+    )
+
+    title = (
+        f"Edge spike diagnostic | transition x/y={_transition_setting(config, 'x'):.1f}/{_transition_setting(config, 'y'):.1f} um, "
+        f"mraf_factor={config.mraf_factor:g}, feedback_exponent={config.feedback_exponent:g}, "
+        f"tail_to_free={config.tail_to_free}\n"
+        f"output_size_50_x/y={metrics['output_size_50_x_um']:.1f}/{metrics['output_size_50_y_um']:.1f} um, "
+        f"rms_90={metrics['rms_90']:.4g}, "
+        f"side_lobe_peak_rel_x/y={metrics['side_lobe_peak_x_rel_to_core']:.3g}/{metrics['side_lobe_peak_y_rel_to_core']:.3g}"
+    )
+    fig.suptitle(title, fontsize=10)
+    fig.tight_layout(rect=[0, 0, 1, 0.92])
+    fig.savefig(path)
+    plt.close(fig)
+
+
+def _transition_setting(config: DOEConfig, axis_label: str) -> float:
+    if axis_label == "x" and config.transition_width_13_90_x_um is not None:
+        return float(config.transition_width_13_90_x_um)
+    if axis_label == "y" and config.transition_width_13_90_y_um is not None:
+        return float(config.transition_width_13_90_y_um)
+    return float(config.transition_width_13_90_um)
+
+
+def _draw_spike_zoom_axis(
+    ax: plt.Axes,
+    config: DOEConfig,
+    coord_um: np.ndarray,
+    profile: np.ndarray,
+    target_profile: np.ndarray,
+    edge_13: tuple[float, float, float],
+    side_lobe: dict,
+    title: str,
+    side: str,
+) -> None:
+    edge = edge_13[0] if side == "left" else edge_13[1]
+    if np.isfinite(edge):
+        view = (coord_um >= edge - 80.0) & (coord_um <= edge + 120.0)
+    else:
+        view = np.abs(coord_um) <= config.plot_crop_um
+
+    ax.plot(coord_um[view], profile[view], lw=1.5, label="output profile")
+    ax.plot(coord_um[view], target_profile[view], lw=1.1, alpha=0.78, label="target profile")
+    _draw_threshold_lines(ax, config)
+
+    if np.isfinite(edge):
+        ax.axvline(edge, color="tab:purple", lw=1.0, ls="--", alpha=0.75, label="output 13.5% crossing")
+
+    if side_lobe.get("side") == side and np.isfinite(side_lobe.get("position_um", np.nan)):
+        ax.scatter(
+            [side_lobe["position_um"]],
+            [side_lobe["peak_rel"]],
+            s=46,
+            marker="x",
+            color="tab:orange",
+            lw=1.8,
+            zorder=5,
+            label="side_lobe_peak",
+        )
+
+    ax.set_xlabel("position (um)")
+    ax.set_ylabel("I / core mean")
+    ax.set_title(title)
+    ax.set_ylim(bottom=0.0)
+    ax.grid(alpha=0.25)
+    ax.legend(frameon=False, fontsize=7)

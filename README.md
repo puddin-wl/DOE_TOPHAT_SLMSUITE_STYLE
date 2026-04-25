@@ -80,6 +80,9 @@ Key files:
 - `center_profiles_flatness.png`
 - `center_profiles_raw_norm.png`
 - `edge_diagnostic_profiles.png`
+- `edge_spike_diagnostic.png`
+
+Small size precomp sweeps also write a root-level `summary.csv`.
 
 Artifact selection rule:
 

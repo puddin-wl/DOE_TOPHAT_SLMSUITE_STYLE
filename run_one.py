@@ -73,6 +73,10 @@ def run_variant(config: DOEConfig, out_dir: Path) -> dict:
     config_payload = config.to_dict()
     if initial_phase_file:
         config_payload["initial_phase_file"] = str(initial_phase_file)
+    config_payload["clear_aperture_diameter_mm"] = config.aperture_diameter_mm
+    config_payload["gaussian_1e2_intensity_diameter_mm"] = config.gaussian_1e2_diameter_mm
+    config_payload["aperture_inside_is_uniform"] = False
+    config_payload["aperture_outside_amplitude"] = 0.0
     config_payload["beam_shape_diagnostic"] = load_bgdata_summary(config.beam_shape_file, Path.cwd())
     config_payload["input_beam_definition"] = {
         "type": "Gaussian intensity beam clipped by DOE clear aperture",
