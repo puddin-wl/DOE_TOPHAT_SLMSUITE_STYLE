@@ -1,0 +1,8 @@
+﻿# Agent collaboration notes
+
+- Before making code or documentation changes, write a short plan for the intended change.
+- After each completed modification batch, run the relevant lightweight validation.
+- Commit and push every completed modification batch to the current working branch.
+- Do not run 4096-scale final jobs unless the user explicitly asks for them.
+- Prefer small single-variable 2048 tests for DOE tuning decisions.
+- Use derivative-based side-lobe metrics for conclusions; treat outside_max as a diagnostic only.
