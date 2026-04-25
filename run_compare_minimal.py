@@ -10,18 +10,13 @@ from run_one import run_variant
 
 VARIANTS = [
     ("gs_hard_random", {"method": "gs", "target": "hard", "phase_init": "random"}),
-    ("mraf_hard_random", {"method": "mraf", "target": "hard", "phase_init": "random"}),
-    ("mraf_soft_quadratic", {"method": "mraf", "target": "soft", "phase_init": "quadratic"}),
-    ("wgs_mraf_soft_quadratic", {"method": "wgs-leonardo", "target": "soft", "phase_init": "quadratic"}),
+    ("mraf_industrial_logistic_quadratic", {"method": "mraf", "target": "industrial_logistic", "phase_init": "quadratic"}),
+    ("wgs_industrial_logistic_quadratic", {"method": "wgs", "target": "industrial_logistic", "phase_init": "quadratic"}),
     (
-        "mraf_soft_astigmatic_quadratic",
-        {"method": "mraf", "target": "soft", "phase_init": "astigmatic_quadratic"},
+        "wgs_industrial_logistic_astigmatic",
+        {"method": "wgs", "target": "industrial_logistic", "phase_init": "astigmatic_quadratic"},
     ),
-    (
-        "wgs_mraf_soft_astigmatic_quadratic",
-        {"method": "wgs-leonardo", "target": "soft", "phase_init": "astigmatic_quadratic"},
-    ),
-    ("mraf_soft_conical_like", {"method": "mraf", "target": "soft", "phase_init": "conical_like"}),
+    ("wgs_industrial_logistic_conical", {"method": "wgs", "target": "industrial_logistic", "phase_init": "conical_like"}),
 ]
 
 
@@ -34,12 +29,14 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--mraf-factor", type=float, default=None)
     parser.add_argument("--target-power-fraction", type=float, default=None)
     parser.add_argument("--feedback-exponent", type=float, default=None)
+    parser.add_argument("--transition-width-13-90-um", type=float, default=None)
+    parser.add_argument("--free-region-threshold-intensity", type=float, default=None)
     parser.add_argument("--free-region-width-x-um", type=float, default=None)
     parser.add_argument("--free-region-width-y-um", type=float, default=None)
     parser.add_argument("--min-efficiency", type=float, default=0.05)
     parser.add_argument("--min-size50-fraction", type=float, default=0.7)
     parser.add_argument("--max-size50-fraction", type=float, default=1.5)
-    parser.add_argument("--soft-only", action="store_true")
+    parser.add_argument("--industrial-only", action="store_true")
     parser.add_argument("--out-root", default=None)
     return parser.parse_args()
 
@@ -49,7 +46,11 @@ def main() -> None:
     root = Path(args.out_root) if args.out_root else timestamped_root()
     summaries = []
 
-    variants = [item for item in VARIANTS if not args.soft_only or item[1]["target"] == "soft"]
+    variants = [
+        item
+        for item in VARIANTS
+        if not args.industrial_only or item[1]["target"] == "industrial_logistic"
+    ]
     for name, overrides in variants:
         print(f"running {name} ...", flush=True)
         config = update_config(
@@ -61,6 +62,8 @@ def main() -> None:
             mraf_factor=args.mraf_factor,
             target_power_fraction=args.target_power_fraction,
             feedback_exponent=args.feedback_exponent,
+            transition_width_13_90_um=args.transition_width_13_90_um,
+            free_region_threshold_intensity=args.free_region_threshold_intensity,
             free_region_width_x_um=args.free_region_width_x_um,
             free_region_width_y_um=args.free_region_width_y_um,
             **overrides,
@@ -68,19 +71,22 @@ def main() -> None:
         summary = run_variant(config, variant_dir(root, name))
         metrics = summary["metrics"]
         valid = (
-            metrics["efficiency_in_roi"] >= args.min_efficiency
+            metrics["efficiency_13p5"] >= args.min_efficiency
             and args.min_size50_fraction * config.target_width_um
-            <= metrics["size_50_x"]
+            <= metrics["size_50_x_um"]
             <= args.max_size50_fraction * config.target_width_um
             and args.min_size50_fraction * config.target_height_um
-            <= metrics["size_50_y"]
+            <= metrics["size_50_y_um"]
             <= args.max_size50_fraction * config.target_height_um
         )
         summaries.append({"name": name, **metrics, "valid_candidate": valid, "out_dir": summary["out_dir"]})
         print(
-            f"  rms={summary['metrics']['rms_in_roi']:.6g}, "
-            f"eff={summary['metrics']['efficiency_in_roi']:.6g}, "
-            f"size50={summary['metrics']['size_50_x']:.6g}x{summary['metrics']['size_50_y']:.6g}, "
+            f"  rms90={summary['metrics']['rms_90']:.6g}, "
+            f"rms50={summary['metrics']['rms_50_reference']:.6g}, "
+            f"eff13={summary['metrics']['efficiency_13p5']:.6g}, "
+            f"size50={summary['metrics']['size_50_x_um']:.6g}x{summary['metrics']['size_50_y_um']:.6g}, "
+            f"tw={summary['metrics']['transition_width_13_90_x_um']:.6g}x"
+            f"{summary['metrics']['transition_width_13_90_y_um']:.6g}, "
             f"std_x={summary['metrics']['center_profile_std_x']:.6g}, "
             f"std_y={summary['metrics']['center_profile_std_y']:.6g}, "
             f"valid={valid}",
@@ -109,8 +115,8 @@ def main() -> None:
         f"{best['name']} "
         f"(std_x={best['center_profile_std_x']:.6g}, "
         f"std_y={best['center_profile_std_y']:.6g}, "
-        f"eff={best['efficiency_in_roi']:.6g}, "
-        f"size50={best['size_50_x']:.6g}x{best['size_50_y']:.6g}, "
+        f"eff13={best['efficiency_13p5']:.6g}, "
+        f"size50={best['size_50_x_um']:.6g}x{best['size_50_y_um']:.6g}, "
         f"score={best['center_profile_flatness_score']:.6g})"
     )
 

@@ -1,6 +1,6 @@
 # Core Algorithm Notes
 
-This project is mostly a Gerchberg-Saxton phase retrieval loop with a slmsuite-style MRAF focal-plane constraint. The surrounding Python files are just grid setup, plotting, metrics, and artifact saving.
+This project is mostly a Gerchberg-Saxton phase retrieval loop with a slmsuite-style MRAF focal-plane constraint and optional computational WGS weight updates. It is a DOE design simulation only: no SLM hardware, camera feedback, calibration, LUT, or closed loop.
 
 ## Field Model
 
@@ -40,26 +40,25 @@ focal plane
   -> DOE plane
 ```
 
-## Soft Target Layout
+## Industrial Logistic Target
 
-The soft rectangle uses four regions:
+The current primary target treats 330 um x 120 um as the final 50% intensity size, not as a hard ROI or 90% boundary.
 
 ```text
-core region:
-  target amplitude = 1
-
-soft edge:
-  target amplitude = raised-cosine falloff in x and y
-
-free/noise ring:
-  target amplitude = NaN
-  this region is not forced to zero
-
-outer guard:
-  target amplitude = 0
+dx = abs(x) - target_width_um / 2
+dy = abs(y) - target_height_um / 2
+d  = max(dx, dy)
 ```
 
-The important fix is that the `NaN` free region is only a finite ring around the soft target, not the whole focal plane.
+At `d = 0`, the target intensity is 50%. The edge is monotonic logistic:
+
+```text
+I(d) = 1 / (1 + exp(d / s))
+s = transition_width_13_90_um / 4.055
+target_amplitude = sqrt(I)
+```
+
+Pixels with `I < 0.135` are written as `NaN`. They are the MRAF free/noise region and are not forced to zero. There is no rounded SDF, no rounded corner target, and no artificial shoulder/halo.
 
 ## MRAF Constraint
 
@@ -72,7 +71,7 @@ zero = finite & (target == 0)
 signal = finite & ~zero
 ```
 
-The target amplitude is converted into normalized weights before iteration:
+The target amplitude is converted into normalized weights:
 
 ```python
 weights = nan_to_num(target, nan=0)
@@ -89,17 +88,17 @@ constrained[zero] = 0
 constrained[noise] = mraf_factor * focal_field[noise]
 ```
 
-Default values:
+For the industrial target the default is:
 
 ```text
 mraf_factor = 0.5
 ```
 
-So the noise ring is relaxed but not zeroed. Only the outer guard region is forced to zero.
+So the `NaN` free/noise region keeps a relaxed copy of its current complex focal field. It is not forced to zero; the factor only prevents the free field from dominating the backward phase update.
 
-## Optional WGS-Leonardo Polish
+## WGS-Leonardo Update
 
-Plain MRAF is the GS backbone. To flatten the ROI profile, the project also supports a computational WGS-Leonardo update similar to slmsuite's weighted GS path:
+Plain MRAF is the GS backbone. To flatten the profile, `method = "wgs"` or `"wgs-leonardo"` updates finite target weights from the simulated focal field:
 
 ```python
 feedback = abs(focal_field)
@@ -109,17 +108,9 @@ weights[signal] *= ratio ** (-feedback_exponent)
 weights = normalize(weights)
 ```
 
-Default:
-
-```text
-feedback_exponent = 2.0
-```
-
 This is not hardware feedback. It uses only the simulated focal field in the current iteration.
 
 ## Iteration Loop
-
-The whole solver is:
 
 ```python
 phase = initial_phase()
@@ -127,7 +118,7 @@ phase = initial_phase()
 for k in range(iterations):
     doe_field = input_amplitude * exp(1j * phase)
     focal_field = forward(doe_field)
-    if method == "wgs-leonardo":
+    if method == "wgs":
         weights = update_weights_from_focal_feedback(weights, focal_field)
     focal_field = apply_mraf_constraint(focal_field, target)
     back_field = backward(focal_field)
@@ -138,13 +129,14 @@ final_field = forward(input_amplitude * exp(1j * phase))
 
 The DOE plane always restores the physical input amplitude. Only phase is optimized.
 
-## Why The First Version Looked Bad
+The default initial phase is `quadratic`, selected after the industrial target comparison because it gave the cleanest 2048 center profiles.
 
-The first version made every pixel outside the soft target a `NaN` free region. For a 2048 grid that meant about 99.7 percent of the focal plane was unconstrained. Some runs sent almost all power into that free region, creating a false result that had a low normalized profile standard deviation but almost no useful ROI efficiency.
+## Industrial Metrics
 
-The corrected version uses:
+Metrics now follow intensity thresholds rather than old ROI-only RMS:
 
-- finite soft signal target near the desired rectangle
-- finite-width free/noise ring for edge relaxation
-- outer zero/guard region to keep power from escaping
-- comparison ranking that rejects "flat but dark" solutions using efficiency and size gates
+- `size_50_x_um`, `size_50_y_um`: center-profile 50% width, target 330 um x 120 um.
+- `size_13p5_x_um`, `size_13p5_y_um`: center-profile 13.5% width.
+- `transition_width_13_90_x_um`, `transition_width_13_90_y_um`: average left/right edge distance from 90% to 13.5%.
+- `efficiency_13p5`: power inside the finite `I_target >= 13.5%` target region.
+- `rms_core`, `rms_90`, `rms_50_reference`: normalized uniformity metrics over progressively larger target-intensity regions.

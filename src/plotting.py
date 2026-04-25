@@ -11,7 +11,7 @@ import numpy as np
 
 from .config import DOEConfig
 from .grids import Grid
-from .metrics import roi_normalized_intensity
+from .metrics import roi_normalized_intensity, target_intensity
 from .targets import TargetResult
 
 
@@ -65,18 +65,18 @@ def save_all_plots(
     focal_intensity: np.ndarray,
     aperture: np.ndarray,
 ) -> None:
-    target_crop, x_crop, y_crop = _focus_crop(config, grid, target.amplitude)
+    target_crop, x_crop, y_crop = _focus_crop(config, grid, target_intensity(target))
     target_plot = np.ma.masked_invalid(target_crop)
-    _save_image(out_dir / "target.png", target_plot, x_crop, y_crop, "target amplitude")
+    _save_image(out_dir / "target.png", target_plot, x_crop, y_crop, "target intensity")
 
     mask_image = np.zeros_like(target.amplitude, dtype=np.float64)
     mask_image[target.zero_mask] = 0.0
     mask_image[target.noise_mask] = 1.0
     mask_image[target.transition_mask] = 2.0
-    mask_image[target.core_mask] = 3.0
-    mask_image[target.roi_mask] = np.maximum(mask_image[target.roi_mask], 4.0)
+    mask_image[target.roi_mask] = np.maximum(mask_image[target.roi_mask], 3.0)
+    mask_image[target.core_mask] = 4.0
     mask_crop, _, _ = _focus_crop(config, grid, mask_image)
-    _save_image(out_dir / "masks.png", mask_crop, x_crop, y_crop, "masks: zero, noise, transition, core, ROI")
+    _save_image(out_dir / "masks.png", mask_crop, x_crop, y_crop, "masks: zero, noise, transition, 50%, core")
 
     near_half = max(config.aperture_diameter_mm * 0.55, 1.0)
     ix = _crop_indices(grid.x_mm, near_half)
@@ -111,35 +111,60 @@ def save_all_plots(
         "ROI intensity / ROI mean",
     )
 
-    _save_profiles(out_dir / "center_profiles.png", config, grid, focal_intensity)
+    _save_profiles(out_dir / "center_profiles.png", config, grid, target, focal_intensity)
 
 
-def _save_profiles(path: Path, config: DOEConfig, grid: Grid, intensity: np.ndarray) -> None:
+def _save_profiles(
+    path: Path,
+    config: DOEConfig,
+    grid: Grid,
+    target: TargetResult,
+    intensity: np.ndarray,
+) -> None:
     cx = grid.n // 2
     cy = grid.n // 2
-    x_roi = np.abs(grid.x_um_focus) <= config.target_width_um / 2.0
-    y_roi = np.abs(grid.y_um_focus) <= config.target_height_um / 2.0
-    x_vals = intensity[cy, x_roi]
-    y_vals = intensity[y_roi, cx]
-    x_mean = float(np.mean(x_vals)) if x_vals.size else 0.0
-    y_mean = float(np.mean(y_vals)) if y_vals.size else 0.0
-    x_norm = x_vals / x_mean if x_mean > 0 else x_vals
-    y_norm = y_vals / y_mean if y_mean > 0 else y_vals
+    x_view = np.abs(grid.x_um_focus) <= config.plot_crop_um
+    y_view = np.abs(grid.y_um_focus) <= config.plot_crop_um
+    reference_values = intensity[target.core_mask]
+    reference = float(np.mean(reference_values)) if reference_values.size else 0.0
+    if reference <= 0:
+        reference_values = intensity[target.roi_mask]
+        reference = float(np.mean(reference_values)) if reference_values.size else 0.0
+    if reference <= 0:
+        reference = float(np.nanmax(intensity))
+
+    x_norm = intensity[cy, x_view] / reference if reference > 0 else intensity[cy, x_view]
+    y_norm = intensity[y_view, cx] / reference if reference > 0 else intensity[y_view, cx]
+    target_i = target_intensity(target)
+    x_target = target_i[cy, x_view]
+    y_target = target_i[y_view, cx]
 
     fig, axes = plt.subplots(1, 2, figsize=(10.5, 4.0), dpi=160)
-    axes[0].plot(grid.x_um_focus[x_roi], x_norm, lw=1.5)
-    axes[0].axhline(1.0, color="k", lw=0.8, alpha=0.5)
+    axes[0].plot(grid.x_um_focus[x_view], x_norm, lw=1.5, label="actual")
+    axes[0].plot(grid.x_um_focus[x_view], x_target, lw=1.0, alpha=0.75, label="target I")
+    for level in (1.0, config.metric_uniform_level, 0.5, config.free_region_threshold_intensity):
+        axes[0].axhline(level, color="k", lw=0.7, alpha=0.35)
+    axes[0].axvline(-config.target_width_um / 2.0, color="tab:red", lw=0.8, alpha=0.45)
+    axes[0].axvline(config.target_width_um / 2.0, color="tab:red", lw=0.8, alpha=0.45)
     axes[0].set_xlabel("x (um)")
-    axes[0].set_ylabel("I / mean")
-    axes[0].set_title("x center profile in 330 um ROI")
+    axes[0].set_ylabel("I / core mean")
+    axes[0].set_title("x center profile")
+    axes[0].set_ylim(bottom=0.0)
     axes[0].grid(alpha=0.25)
+    axes[0].legend(frameon=False, fontsize=8)
 
-    axes[1].plot(grid.y_um_focus[y_roi], y_norm, lw=1.5)
-    axes[1].axhline(1.0, color="k", lw=0.8, alpha=0.5)
+    axes[1].plot(grid.y_um_focus[y_view], y_norm, lw=1.5, label="actual")
+    axes[1].plot(grid.y_um_focus[y_view], y_target, lw=1.0, alpha=0.75, label="target I")
+    for level in (1.0, config.metric_uniform_level, 0.5, config.free_region_threshold_intensity):
+        axes[1].axhline(level, color="k", lw=0.7, alpha=0.35)
+    axes[1].axvline(-config.target_height_um / 2.0, color="tab:red", lw=0.8, alpha=0.45)
+    axes[1].axvline(config.target_height_um / 2.0, color="tab:red", lw=0.8, alpha=0.45)
     axes[1].set_xlabel("y (um)")
-    axes[1].set_ylabel("I / mean")
-    axes[1].set_title("y center profile in 120 um ROI")
+    axes[1].set_ylabel("I / core mean")
+    axes[1].set_title("y center profile")
+    axes[1].set_ylim(bottom=0.0)
     axes[1].grid(alpha=0.25)
+    axes[1].legend(frameon=False, fontsize=8)
     plt.tight_layout()
     plt.savefig(path)
     plt.close(fig)

@@ -103,10 +103,47 @@ def make_soft_rectangle(config: DOEConfig, grid: Grid) -> TargetResult:
     )
 
 
+def make_industrial_logistic_target(config: DOEConfig, grid: Grid) -> TargetResult:
+    X, Y = _focus_mesh_um(grid)
+    dx = np.abs(X) - config.target_width_um / 2.0
+    dy = np.abs(Y) - config.target_height_um / 2.0
+    d = np.maximum(dx, dy)
+
+    if config.transition_width_13_90_um <= 0:
+        raise ValueError("transition_width_13_90_um must be positive")
+    s = config.transition_width_13_90_um / 4.055
+    intensity = 1.0 / (1.0 + np.exp(np.clip(d / s, -80.0, 80.0)))
+
+    threshold = float(config.free_region_threshold_intensity)
+    finite = intensity >= threshold
+    noise = ~finite
+
+    amplitude = np.full((grid.n, grid.n), np.nan, dtype=np.float64)
+    amplitude[finite] = np.sqrt(intensity[finite])
+
+    roi = intensity >= 0.5
+    core = intensity >= config.metric_uniform_level
+    transition = finite & ~core
+    zero = np.zeros_like(finite, dtype=bool)
+
+    return TargetResult(
+        amplitude=amplitude,
+        roi_mask=roi,
+        core_mask=core,
+        transition_mask=transition,
+        noise_mask=noise,
+        zero_mask=zero,
+        signal_mask=finite,
+        finite_mask=finite,
+    )
+
+
 def make_target(config: DOEConfig, grid: Grid) -> TargetResult:
     target = config.target.lower()
     if target == "hard":
         return make_hard_rectangle(config, grid)
     if target == "soft":
         return make_soft_rectangle(config, grid)
+    if target in {"industrial_logistic", "industrial", "logistic"}:
+        return make_industrial_logistic_target(config, grid)
     raise ValueError(f"Unknown target type: {config.target!r}")

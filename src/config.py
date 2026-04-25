@@ -22,6 +22,10 @@ class DOEConfig:
 
     target_width_um: float = 330.0
     target_height_um: float = 120.0
+    transition_width_13_90_um: float = 40.0
+    free_region_threshold_intensity: float = 0.135
+    metric_core_level: float = 0.95
+    metric_uniform_level: float = 0.90
     core_width_um: float = 320.0
     core_height_um: float = 100.0
     edge_width_x_um: float = 20.0
@@ -29,9 +33,9 @@ class DOEConfig:
     free_region_width_x_um: float = 120.0
     free_region_width_y_um: float = 120.0
 
-    method: str = "mraf"
-    target: str = "soft"
-    phase_init: str = "astigmatic_quadratic"
+    method: str = "wgs"
+    target: str = "industrial_logistic"
+    phase_init: str = "quadratic"
     mraf_factor: float = 0.5
     target_power_fraction: float | None = None
     normalize_input_power: bool = True

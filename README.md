@@ -1,13 +1,14 @@
 # DOE_TOPHAT_SLMSUITE_STYLE
 
-Minimal continuous-phase DOE solver for a 330 um x 120 um rectangular flat-top target.
+Minimal continuous-phase DOE solver for a 330 um x 120 um industrial 50%-intensity flat-top target.
 
 This is a fresh Python project. It does not reuse MATLAB project code and does not include SLM hardware, camera feedback, calibration, LUT, or experimental closed-loop logic.
 
 ## Physics Defaults
 
 - Wavelength: 532 nm
-- Target ROI: 330 um x 120 um
+- Target 50% intensity size: 330 um x 120 um
+- Default 13.5%-to-90% transition width target: 40 um
 - Expanded input beam at DOE: Gaussian 1/e^2 intensity diameter = 5 mm
 - DOE clear aperture: 15 mm centered circular aperture
 - Aperture outside amplitude: exactly 0
@@ -50,13 +51,13 @@ python -m pip install -r requirements.txt
 Smoke test:
 
 ```powershell
-python run_one.py --n 512 --iterations 3
+python run_one.py --n 512 --iterations 5 --target industrial_logistic --method wgs
 ```
 
 Default-size short run:
 
 ```powershell
-python run_one.py --n 2048 --iterations 20
+python run_one.py --n 2048 --iterations 50 --target industrial_logistic --method wgs
 ```
 
 Minimal comparison:
@@ -68,14 +69,14 @@ python run_compare_minimal.py --n 2048
 Useful tuning knobs after the smoke test:
 
 ```powershell
-python run_one.py --n 2048 --iterations 50 --method mraf --target soft --phase-init quadratic --mraf-factor 0.5 --target-power-fraction 0.7
-python run_one.py --n 2048 --iterations 50 --method mraf --target soft --phase-init quadratic --free-region-width-x-um 160 --free-region-width-y-um 160
+python run_one.py --n 2048 --iterations 60 --method wgs --target industrial_logistic --phase-init quadratic --transition-width-13-90-um 40
+python run_one.py --n 2048 --iterations 60 --method wgs --target industrial_logistic --phase-init quadratic --feedback-exponent 2.0
 ```
 
 Slmsuite-style WGS-Leonardo polish after an MRAF run:
 
 ```powershell
-python run_one.py --n 2048 --iterations 60 --method wgs-leonardo --target soft --phase-init quadratic --mraf-factor 0.5 --feedback-exponent 2.0 --initial-phase-file artifacts\compare_slmsuite_20260425-165619\mraf_soft_quadratic\phase.npy
+python run_one.py --n 2048 --iterations 60 --method wgs --target industrial_logistic --phase-init quadratic --feedback-exponent 2.0 --initial-phase-file artifacts\some_mraf_run\phase.npy
 ```
 
 4096 review run:
@@ -94,16 +95,16 @@ Reference:
 - `slmsuite/slmsuite/holography/algorithms/_hologram.py`
 - slmsuite is MIT licensed. This project rewrites a small solver from the idea rather than copying slmsuite source code.
 
-For the soft target, finite pixels are constrained:
+For the industrial logistic target, finite pixels are constrained:
 
-- Core: amplitude 1
-- Edge: separable raised-cosine falloff in x/y
-- A finite ring outside the edge: `NaN`, meaning MRAF free/noise region
-- Outside that ring: zero/guard region
+- The straight rectangular distance field has `d = 0` at the 330 um x 120 um boundary.
+- The intensity target is `I(d) = 1 / (1 + exp(d / s))`, where `s = transition_width_13_90_um / 4.055`.
+- The constrained target amplitude is `sqrt(I)`, not `I`.
+- Pixels below 13.5% target intensity are set to `NaN`, meaning MRAF free/noise region.
 
-In MRAF, `NaN` target pixels keep their current complex focal field. They are not forced to zero. The DOE plane then restores only the input amplitude, `5 mm Gaussian x 15 mm aperture`, and keeps the returned phase.
+In MRAF, `NaN` target pixels keep a relaxed copy of their current complex focal field. They are not forced to zero. The DOE plane then restores only the input amplitude, `5 mm Gaussian x 15 mm aperture`, and keeps the returned phase.
 
-The default free ring width is 120 um in x and y. The default `mraf_factor` is 0.5, so the free ring is relaxed but not zeroed. The target weights and input amplitude are normalized in the slmsuite style. Optional `wgs-leonardo` updates target weights from the simulated focal-plane feedback; it is computational only and does not use camera feedback. For the current 2048 tuning, `feedback_exponent=2.0` is the best tested value so far.
+The default initial phase is `quadratic`, selected from the minimal comparison because it gave the cleanest 2048 center profiles with the industrial logistic target. The default `mraf_factor` is 0.5 for the industrial target, because full preservation at 1.0 lets too much power remain in the free/noise field. The target weights and input amplitude are normalized in the slmsuite style. Optional `wgs` / `wgs-leonardo` updates target weights from the simulated focal-plane feedback; it is computational only and does not use camera feedback.
 
 See `CORE_ALGORITHM.md` for the compact algorithm summary and pseudocode.
 
@@ -124,4 +125,4 @@ Each run writes to `artifacts/YYYYMMDD-HHMMSS/<variant>/`:
 - `roi_intensity.png`
 - `center_profiles.png`
 
-The ROI center profiles are normalized by their own mean inside the 330 um x 120 um ROI.
+The center profiles are normalized by the simulated mean intensity in the high-target core and include 90%, 50%, and 13.5% reference lines. Metrics report `size_50_x/y_um`, `size_13p5_x/y_um`, `transition_width_13_90_x/y_um`, `efficiency_13p5`, `rms_core`, `rms_90`, and `rms_50_reference`.

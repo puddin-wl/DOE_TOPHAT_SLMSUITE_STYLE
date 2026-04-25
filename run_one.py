@@ -21,8 +21,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--n", type=int, default=None)
     parser.add_argument("--focus-sampling-um", type=float, default=None)
     parser.add_argument("--iterations", type=int, default=None)
-    parser.add_argument("--method", choices=["gs", "mraf", "wgs-leonardo"], default=None)
-    parser.add_argument("--target", choices=["hard", "soft"], default=None)
+    parser.add_argument("--method", choices=["gs", "mraf", "wgs", "wgs-leonardo"], default=None)
+    parser.add_argument("--target", choices=["hard", "soft", "industrial_logistic"], default=None)
     parser.add_argument(
         "--phase-init",
         choices=["random", "quadratic", "astigmatic_quadratic", "conical_like"],
@@ -32,6 +32,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--mraf-factor", type=float, default=None)
     parser.add_argument("--target-power-fraction", type=float, default=None)
     parser.add_argument("--feedback-exponent", type=float, default=None)
+    parser.add_argument("--transition-width-13-90-um", type=float, default=None)
+    parser.add_argument("--free-region-threshold-intensity", type=float, default=None)
     parser.add_argument("--free-region-width-x-um", type=float, default=None)
     parser.add_argument("--free-region-width-y-um", type=float, default=None)
     parser.add_argument("--initial-phase-file", default=None)
@@ -94,6 +96,8 @@ def main() -> None:
         mraf_factor=args.mraf_factor,
         target_power_fraction=args.target_power_fraction,
         feedback_exponent=args.feedback_exponent,
+        transition_width_13_90_um=args.transition_width_13_90_um,
+        free_region_threshold_intensity=args.free_region_threshold_intensity,
         free_region_width_x_um=args.free_region_width_x_um,
         free_region_width_y_um=args.free_region_width_y_um,
     )
@@ -107,8 +111,16 @@ def main() -> None:
     print(f"compute_window_mm: {summary['config']['compute_window_mm']:.6f}")
     print(f"doe_sampling_um: {summary['config']['doe_sampling_mm'] * 1000.0:.6f}")
     print(f"focus_sampling_um: {summary['config']['focus_sampling_um']:.6f}")
-    print(f"rms_in_roi: {summary['metrics']['rms_in_roi']:.6g}")
-    print(f"efficiency_in_roi: {summary['metrics']['efficiency_in_roi']:.6g}")
+    print(f"size_50_x/y_um: {summary['metrics']['size_50_x_um']:.6g} / {summary['metrics']['size_50_y_um']:.6g}")
+    print(
+        "transition_13_90_x/y_um: "
+        f"{summary['metrics']['transition_width_13_90_x_um']:.6g} / "
+        f"{summary['metrics']['transition_width_13_90_y_um']:.6g}"
+    )
+    print(f"rms_core: {summary['metrics']['rms_core']:.6g}")
+    print(f"rms_90: {summary['metrics']['rms_90']:.6g}")
+    print(f"rms_50_reference: {summary['metrics']['rms_50_reference']:.6g}")
+    print(f"efficiency_13p5: {summary['metrics']['efficiency_13p5']:.6g}")
     print(
         "center_profile_std_x/y: "
         f"{summary['metrics']['center_profile_std_x']:.6g} / "

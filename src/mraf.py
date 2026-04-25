@@ -83,6 +83,10 @@ def apply_focal_constraint(
         "noise_region_forced_zero": bool(
             np.any(noise) and (method == "gs" or (method == "mraf" and mraf_factor == 0))
         ),
+        "noise_region_preserved": bool(np.any(noise) and method == "mraf" and mraf_factor == 1.0),
+        "noise_region_relaxed_not_zero": bool(
+            np.any(noise) and method == "mraf" and 0.0 < mraf_factor < 1.0
+        ),
         "zero_region_forced_zero": bool(np.any(zero)),
     }
     return constrained, stats
@@ -132,7 +136,7 @@ def solve_phase(
     signal_mask = np.isfinite(target_amplitude) & (np.abs(target_amplitude) > 0.0)
     target_weights_reference = np.array(target_weights, copy=True)
     method = config.method.lower()
-    use_wgs = method in {"wgs-leonardo", "wgs_mraf_leonardo", "wgs-mraf-leonardo"}
+    use_wgs = method in {"wgs", "wgs-leonardo", "wgs_mraf_leonardo", "wgs-mraf-leonardo"}
 
     for iteration in range(config.iterations):
         doe_field = input_amplitude * np.exp(1j * phase)
