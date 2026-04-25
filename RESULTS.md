@@ -4,6 +4,38 @@ Note: the entries below are legacy pre-industrial-target runs that used the old 
 
 This repository keeps large run artifacts out of git. The local artifact images and arrays are under `artifacts/`, while this file records the current reproducible result.
 
+## Current Industrial Transition Check
+
+Best aggressive edge candidate from the first focused 2048 sweep:
+
+```powershell
+python run_one.py --n 2048 --iterations 80 --method wgs --target industrial_logistic --transition-width-13-90-x-um 12 --transition-width-13-90-y-um 16 --mraf-factor 0.5
+```
+
+Local output:
+
+```text
+artifacts\transition_sweep_20260425-2052\twx12_twy16_mraf05_i80
+```
+
+Metrics:
+
+```text
+target_transition_width_13_90_x/y_um   12.3 / 16.2
+output_transition_width_13_90_x/y_um   16.8 / 20.5
+output_size_50_x/y_um                  333.9 / 123.2
+efficiency_13p5                        0.864
+rms_90                                 0.0208
+center_profile_std_x/y                 0.0600 / 0.1083
+```
+
+The earlier 40 um baseline is confirmed to be target-limited rather than propagation-broadened:
+
+```text
+target_transition_width_13_90_x/y_um   40.1 / 40.1
+output_transition_width_13_90_x/y_um   38.9 / 37.8
+```
+
 ## Best 2048 Result So Far
 
 Run:

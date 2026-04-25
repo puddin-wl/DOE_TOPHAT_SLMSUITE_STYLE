@@ -18,6 +18,7 @@ class TargetResult:
     zero_mask: np.ndarray
     signal_mask: np.ndarray
     finite_mask: np.ndarray
+    intensity: np.ndarray | None = None
 
 
 def _focus_mesh_um(grid: Grid) -> tuple[np.ndarray, np.ndarray]:
@@ -32,6 +33,7 @@ def make_hard_rectangle(config: DOEConfig, grid: Grid) -> TargetResult:
     )
     amplitude = np.zeros((grid.n, grid.n), dtype=np.float64)
     amplitude[roi] = 1.0
+    intensity = amplitude**2
     finite = np.ones_like(roi, dtype=bool)
     zero = ~roi
     return TargetResult(
@@ -43,6 +45,7 @@ def make_hard_rectangle(config: DOEConfig, grid: Grid) -> TargetResult:
         zero_mask=zero,
         signal_mask=roi.copy(),
         finite_mask=finite,
+        intensity=intensity,
     )
 
 
@@ -72,6 +75,7 @@ def make_soft_rectangle(config: DOEConfig, grid: Grid) -> TargetResult:
     signal = np.isfinite(ex) & np.isfinite(ey)
     amplitude = np.zeros((grid.n, grid.n), dtype=np.float64)
     amplitude[signal] = ex[signal] * ey[signal]
+    intensity = amplitude**2
 
     roi = (np.abs(X) <= config.target_width_um / 2.0) & (
         np.abs(Y) <= config.target_height_um / 2.0
@@ -100,6 +104,7 @@ def make_soft_rectangle(config: DOEConfig, grid: Grid) -> TargetResult:
         zero_mask=zero,
         signal_mask=signal,
         finite_mask=finite,
+        intensity=intensity,
     )
 
 
@@ -107,12 +112,25 @@ def make_industrial_logistic_target(config: DOEConfig, grid: Grid) -> TargetResu
     X, Y = _focus_mesh_um(grid)
     dx = np.abs(X) - config.target_width_um / 2.0
     dy = np.abs(Y) - config.target_height_um / 2.0
-    d = np.maximum(dx, dy)
 
-    if config.transition_width_13_90_um <= 0:
-        raise ValueError("transition_width_13_90_um must be positive")
-    s = config.transition_width_13_90_um / 4.055
-    intensity = 1.0 / (1.0 + np.exp(np.clip(d / s, -80.0, 80.0)))
+    transition_x = (
+        config.transition_width_13_90_x_um
+        if config.transition_width_13_90_x_um is not None
+        else config.transition_width_13_90_um
+    )
+    transition_y = (
+        config.transition_width_13_90_y_um
+        if config.transition_width_13_90_y_um is not None
+        else config.transition_width_13_90_um
+    )
+    if transition_x <= 0 or transition_y <= 0:
+        raise ValueError("transition widths must be positive")
+
+    sx = transition_x / 4.055
+    sy = transition_y / 4.055
+    ix = 1.0 / (1.0 + np.exp(np.clip(dx / sx, -80.0, 80.0)))
+    iy = 1.0 / (1.0 + np.exp(np.clip(dy / sy, -80.0, 80.0)))
+    intensity = np.minimum(ix, iy)
 
     threshold = float(config.free_region_threshold_intensity)
     finite = intensity >= threshold
@@ -135,6 +153,7 @@ def make_industrial_logistic_target(config: DOEConfig, grid: Grid) -> TargetResu
         zero_mask=zero,
         signal_mask=finite,
         finite_mask=finite,
+        intensity=intensity,
     )
 
 

@@ -71,6 +71,7 @@ Useful tuning knobs after the smoke test:
 ```powershell
 python run_one.py --n 2048 --iterations 60 --method wgs --target industrial_logistic --phase-init quadratic --transition-width-13-90-um 40
 python run_one.py --n 2048 --iterations 60 --method wgs --target industrial_logistic --phase-init quadratic --feedback-exponent 2.0
+python run_one.py --n 2048 --iterations 50 --method wgs --target industrial_logistic --transition-width-13-90-x-um 12 --transition-width-13-90-y-um 16
 ```
 
 Slmsuite-style WGS-Leonardo polish after an MRAF run:
@@ -126,3 +127,4 @@ Each run writes to `artifacts/YYYYMMDD-HHMMSS/<variant>/`:
 - `center_profiles.png`
 
 The center profiles are normalized by the simulated mean intensity in the high-target core and include 90%, 50%, and 13.5% reference lines. Metrics report `size_50_x/y_um`, `size_13p5_x/y_um`, `transition_width_13_90_x/y_um`, `efficiency_13p5`, `rms_core`, `rms_90`, and `rms_50_reference`.
+The same metrics are also written with explicit `target_` and `output_` prefixes so the intended target edge width can be compared with the optimized focal-plane result. `center_profiles_raw_norm.png` marks the 90%, 50%, and 13.5% crossing points used for the size and transition calculations.

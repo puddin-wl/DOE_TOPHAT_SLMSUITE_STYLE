@@ -30,6 +30,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--target-power-fraction", type=float, default=None)
     parser.add_argument("--feedback-exponent", type=float, default=None)
     parser.add_argument("--transition-width-13-90-um", type=float, default=None)
+    parser.add_argument("--transition-width-13-90-x-um", type=float, default=None)
+    parser.add_argument("--transition-width-13-90-y-um", type=float, default=None)
     parser.add_argument("--free-region-threshold-intensity", type=float, default=None)
     parser.add_argument("--free-region-width-x-um", type=float, default=None)
     parser.add_argument("--free-region-width-y-um", type=float, default=None)
@@ -63,6 +65,8 @@ def main() -> None:
             target_power_fraction=args.target_power_fraction,
             feedback_exponent=args.feedback_exponent,
             transition_width_13_90_um=args.transition_width_13_90_um,
+            transition_width_13_90_x_um=args.transition_width_13_90_x_um,
+            transition_width_13_90_y_um=args.transition_width_13_90_y_um,
             free_region_threshold_intensity=args.free_region_threshold_intensity,
             free_region_width_x_um=args.free_region_width_x_um,
             free_region_width_y_um=args.free_region_width_y_um,

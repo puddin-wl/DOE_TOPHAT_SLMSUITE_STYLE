@@ -13,7 +13,7 @@ class DOEConfig:
     aperture_diameter_mm: float = 15.0
     gaussian_1e2_diameter_mm: float = 5.0
     lens_pupil_diameter_mm: float = 15.0
-    beam_shape_file: str = "参数/3044.bgData"
+    beam_shape_file: str = "\u53c2\u6570/3044.bgData"
 
     n: int = 2048
     focus_sampling_um: float = 2.5
@@ -23,6 +23,8 @@ class DOEConfig:
     target_width_um: float = 330.0
     target_height_um: float = 120.0
     transition_width_13_90_um: float = 40.0
+    transition_width_13_90_x_um: float | None = None
+    transition_width_13_90_y_um: float | None = None
     free_region_threshold_intensity: float = 0.135
     metric_core_level: float = 0.95
     metric_uniform_level: float = 0.90

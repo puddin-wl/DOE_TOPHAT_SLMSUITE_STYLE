@@ -33,6 +33,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--target-power-fraction", type=float, default=None)
     parser.add_argument("--feedback-exponent", type=float, default=None)
     parser.add_argument("--transition-width-13-90-um", type=float, default=None)
+    parser.add_argument("--transition-width-13-90-x-um", type=float, default=None)
+    parser.add_argument("--transition-width-13-90-y-um", type=float, default=None)
     parser.add_argument("--free-region-threshold-intensity", type=float, default=None)
     parser.add_argument("--free-region-width-x-um", type=float, default=None)
     parser.add_argument("--free-region-width-y-um", type=float, default=None)
@@ -97,6 +99,8 @@ def main() -> None:
         target_power_fraction=args.target_power_fraction,
         feedback_exponent=args.feedback_exponent,
         transition_width_13_90_um=args.transition_width_13_90_um,
+        transition_width_13_90_x_um=args.transition_width_13_90_x_um,
+        transition_width_13_90_y_um=args.transition_width_13_90_y_um,
         free_region_threshold_intensity=args.free_region_threshold_intensity,
         free_region_width_x_um=args.free_region_width_x_um,
         free_region_width_y_um=args.free_region_width_y_um,
@@ -111,9 +115,19 @@ def main() -> None:
     print(f"compute_window_mm: {summary['config']['compute_window_mm']:.6f}")
     print(f"doe_sampling_um: {summary['config']['doe_sampling_mm'] * 1000.0:.6f}")
     print(f"focus_sampling_um: {summary['config']['focus_sampling_um']:.6f}")
-    print(f"size_50_x/y_um: {summary['metrics']['size_50_x_um']:.6g} / {summary['metrics']['size_50_y_um']:.6g}")
     print(
-        "transition_13_90_x/y_um: "
+        "target_size_50_x/y_um: "
+        f"{summary['metrics']['target_size_50_x_um']:.6g} / "
+        f"{summary['metrics']['target_size_50_y_um']:.6g}"
+    )
+    print(f"output_size_50_x/y_um: {summary['metrics']['size_50_x_um']:.6g} / {summary['metrics']['size_50_y_um']:.6g}")
+    print(
+        "target_transition_13_90_x/y_um: "
+        f"{summary['metrics']['target_transition_width_13_90_x_um']:.6g} / "
+        f"{summary['metrics']['target_transition_width_13_90_y_um']:.6g}"
+    )
+    print(
+        "output_transition_13_90_x/y_um: "
         f"{summary['metrics']['transition_width_13_90_x_um']:.6g} / "
         f"{summary['metrics']['transition_width_13_90_y_um']:.6g}"
     )

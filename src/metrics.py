@@ -8,6 +8,8 @@ from .targets import TargetResult
 
 
 def target_intensity(target: TargetResult) -> np.ndarray:
+    if target.intensity is not None:
+        return np.array(target.intensity, copy=True)
     out = np.full_like(target.amplitude, np.nan, dtype=np.float64)
     finite = np.isfinite(target.amplitude)
     out[finite] = target.amplitude[finite] ** 2
@@ -123,6 +125,47 @@ def _transition_width(edge_90: tuple[float, float, float], edge_13: tuple[float,
     return float(np.mean(widths)) if widths else float("nan")
 
 
+def _profile_measurements(
+    coord_x_um: np.ndarray,
+    x_profile: np.ndarray,
+    coord_y_um: np.ndarray,
+    y_profile: np.ndarray,
+    level_90: float,
+    level_13: float,
+    prefix: str = "",
+) -> dict:
+    key = f"{prefix}_" if prefix else ""
+    x_edges_90 = _center_connected_edges(coord_x_um, x_profile, level_90)
+    x_edges_50 = _center_connected_edges(coord_x_um, x_profile, 0.5)
+    x_edges_13 = _center_connected_edges(coord_x_um, x_profile, level_13)
+    y_edges_90 = _center_connected_edges(coord_y_um, y_profile, level_90)
+    y_edges_50 = _center_connected_edges(coord_y_um, y_profile, 0.5)
+    y_edges_13 = _center_connected_edges(coord_y_um, y_profile, level_13)
+
+    return {
+        f"{key}size_90_x_um": x_edges_90[2],
+        f"{key}size_90_y_um": y_edges_90[2],
+        f"{key}size_50_x_um": x_edges_50[2],
+        f"{key}size_50_y_um": y_edges_50[2],
+        f"{key}size_13p5_x_um": x_edges_13[2],
+        f"{key}size_13p5_y_um": y_edges_13[2],
+        f"{key}transition_width_13_90_x_um": _transition_width(x_edges_90, x_edges_13),
+        f"{key}transition_width_13_90_y_um": _transition_width(y_edges_90, y_edges_13),
+        f"{key}x_left_90_um": x_edges_90[0],
+        f"{key}x_right_90_um": x_edges_90[1],
+        f"{key}x_left_50_um": x_edges_50[0],
+        f"{key}x_right_50_um": x_edges_50[1],
+        f"{key}x_left_13p5_um": x_edges_13[0],
+        f"{key}x_right_13p5_um": x_edges_13[1],
+        f"{key}y_left_90_um": y_edges_90[0],
+        f"{key}y_right_90_um": y_edges_90[1],
+        f"{key}y_left_50_um": y_edges_50[0],
+        f"{key}y_right_50_um": y_edges_50[1],
+        f"{key}y_left_13p5_um": y_edges_13[0],
+        f"{key}y_right_13p5_um": y_edges_13[1],
+    }
+
+
 def compute_metrics(config: DOEConfig, grid: Grid, target: TargetResult, intensity: np.ndarray) -> dict:
     ti = target_intensity(target)
     reference, reference_source = _reference_intensity(config, target, intensity)
@@ -144,20 +187,26 @@ def compute_metrics(config: DOEConfig, grid: Grid, target: TargetResult, intensi
     cx = grid.n // 2
     x_profile = norm_intensity[cy, :]
     y_profile = norm_intensity[:, cx]
+    target_x_profile = ti[cy, :]
+    target_y_profile = ti[:, cx]
 
-    x_edges_90 = _center_connected_edges(grid.x_um_focus, x_profile, config.metric_uniform_level)
-    x_edges_50 = _center_connected_edges(grid.x_um_focus, x_profile, 0.5)
-    x_edges_13 = _center_connected_edges(
+    output_measurements = _profile_measurements(
         grid.x_um_focus,
         x_profile,
-        config.free_region_threshold_intensity,
-    )
-    y_edges_90 = _center_connected_edges(grid.y_um_focus, y_profile, config.metric_uniform_level)
-    y_edges_50 = _center_connected_edges(grid.y_um_focus, y_profile, 0.5)
-    y_edges_13 = _center_connected_edges(
         grid.y_um_focus,
         y_profile,
+        config.metric_uniform_level,
         config.free_region_threshold_intensity,
+        prefix="output",
+    )
+    target_measurements = _profile_measurements(
+        grid.x_um_focus,
+        target_x_profile,
+        grid.y_um_focus,
+        target_y_profile,
+        config.metric_uniform_level,
+        config.free_region_threshold_intensity,
+        prefix="target",
     )
 
     x_50_roi = np.abs(grid.x_um_focus) <= config.target_width_um / 2.0
@@ -165,22 +214,19 @@ def compute_metrics(config: DOEConfig, grid: Grid, target: TargetResult, intensi
     _, _, x_std, x_p2p = _rms_about_one(x_profile[x_50_roi])
     _, _, y_std, y_p2p = _rms_about_one(y_profile[y_50_roi])
 
-    size_50_x = x_edges_50[2]
-    size_50_y = y_edges_50[2]
-    size_13_x = x_edges_13[2]
-    size_13_y = y_edges_13[2]
-    transition_x = _transition_width(x_edges_90, x_edges_13)
-    transition_y = _transition_width(y_edges_90, y_edges_13)
-
     flatness_score = float(np.nan_to_num(x_std, nan=1e9) + np.nan_to_num(y_std, nan=1e9))
 
-    return {
-        "size_50_x_um": size_50_x,
-        "size_50_y_um": size_50_y,
-        "size_13p5_x_um": size_13_x,
-        "size_13p5_y_um": size_13_y,
-        "transition_width_13_90_x_um": transition_x,
-        "transition_width_13_90_y_um": transition_y,
+    metrics = {
+        **output_measurements,
+        **target_measurements,
+        "size_90_x_um": output_measurements["output_size_90_x_um"],
+        "size_90_y_um": output_measurements["output_size_90_y_um"],
+        "size_50_x_um": output_measurements["output_size_50_x_um"],
+        "size_50_y_um": output_measurements["output_size_50_y_um"],
+        "size_13p5_x_um": output_measurements["output_size_13p5_x_um"],
+        "size_13p5_y_um": output_measurements["output_size_13p5_y_um"],
+        "transition_width_13_90_x_um": output_measurements["output_transition_width_13_90_x_um"],
+        "transition_width_13_90_y_um": output_measurements["output_transition_width_13_90_y_um"],
         "efficiency_13p5": efficiency_13,
         "rms_core": rms_core,
         "rms_90": rms_90,
@@ -196,18 +242,18 @@ def compute_metrics(config: DOEConfig, grid: Grid, target: TargetResult, intensi
         "target_50_pixel_count": int(np.count_nonzero(mask_50)),
         "target_90_pixel_count": int(np.count_nonzero(mask_90)),
         "target_core_pixel_count": int(np.count_nonzero(mask_core)),
-        "x_left_90_um": x_edges_90[0],
-        "x_right_90_um": x_edges_90[1],
-        "x_left_50_um": x_edges_50[0],
-        "x_right_50_um": x_edges_50[1],
-        "x_left_13p5_um": x_edges_13[0],
-        "x_right_13p5_um": x_edges_13[1],
-        "y_left_90_um": y_edges_90[0],
-        "y_right_90_um": y_edges_90[1],
-        "y_left_50_um": y_edges_50[0],
-        "y_right_50_um": y_edges_50[1],
-        "y_left_13p5_um": y_edges_13[0],
-        "y_right_13p5_um": y_edges_13[1],
+        "x_left_90_um": output_measurements["output_x_left_90_um"],
+        "x_right_90_um": output_measurements["output_x_right_90_um"],
+        "x_left_50_um": output_measurements["output_x_left_50_um"],
+        "x_right_50_um": output_measurements["output_x_right_50_um"],
+        "x_left_13p5_um": output_measurements["output_x_left_13p5_um"],
+        "x_right_13p5_um": output_measurements["output_x_right_13p5_um"],
+        "y_left_90_um": output_measurements["output_y_left_90_um"],
+        "y_right_90_um": output_measurements["output_y_right_90_um"],
+        "y_left_50_um": output_measurements["output_y_left_50_um"],
+        "y_right_50_um": output_measurements["output_y_right_50_um"],
+        "y_left_13p5_um": output_measurements["output_y_left_13p5_um"],
+        "y_right_13p5_um": output_measurements["output_y_right_13p5_um"],
         "rms_90_mean": mean_90,
         "rms_90_std": std_90,
         "rms_90_p2p": p2p_90,
@@ -221,9 +267,10 @@ def compute_metrics(config: DOEConfig, grid: Grid, target: TargetResult, intensi
         # Legacy aliases kept so older scripts do not silently break.
         "rms_in_roi": rms_50,
         "efficiency_in_roi": efficiency_13,
-        "size_50_x": size_50_x,
-        "size_50_y": size_50_y,
+        "size_50_x": output_measurements["output_size_50_x_um"],
+        "size_50_y": output_measurements["output_size_50_y_um"],
     }
+    return metrics
 
 
 def roi_normalized_intensity(target: TargetResult, intensity: np.ndarray) -> np.ndarray:

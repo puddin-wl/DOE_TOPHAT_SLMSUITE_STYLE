@@ -58,6 +58,8 @@ s = transition_width_13_90_um / 4.055
 target_amplitude = sqrt(I)
 ```
 
+The edge width can also be set independently with `transition_width_13_90_x_um` and `transition_width_13_90_y_um`. With separate x/y values, the target uses the minimum of the x and y logistic edge functions, which keeps straight rectangular edges rather than rounded SDF corners.
+
 Pixels with `I < 0.135` are written as `NaN`. They are the MRAF free/noise region and are not forced to zero. There is no rounded SDF, no rounded corner target, and no artificial shoulder/halo.
 
 ## MRAF Constraint
@@ -140,3 +142,5 @@ Metrics now follow intensity thresholds rather than old ROI-only RMS:
 - `transition_width_13_90_x_um`, `transition_width_13_90_y_um`: average left/right edge distance from 90% to 13.5%.
 - `efficiency_13p5`: power inside the finite `I_target >= 13.5%` target region.
 - `rms_core`, `rms_90`, `rms_50_reference`: normalized uniformity metrics over progressively larger target-intensity regions.
+
+Every size and transition metric is also written with `target_` and `output_` prefixes. The unprefixed names remain aliases for the output focal-plane result.

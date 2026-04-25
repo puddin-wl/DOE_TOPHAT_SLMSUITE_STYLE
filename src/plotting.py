@@ -11,7 +11,7 @@ import numpy as np
 
 from .config import DOEConfig
 from .grids import Grid
-from .metrics import roi_normalized_intensity, target_intensity
+from .metrics import _center_connected_edges, _transition_width, roi_normalized_intensity, target_intensity
 from .targets import TargetResult
 
 
@@ -112,6 +112,14 @@ def save_all_plots(
     )
 
     _save_profiles(out_dir / "center_profiles.png", config, grid, target, focal_intensity)
+    _save_profiles(
+        out_dir / "center_profiles_raw_norm.png",
+        config,
+        grid,
+        target,
+        focal_intensity,
+        annotate_crossings=True,
+    )
 
 
 def _save_profiles(
@@ -120,6 +128,7 @@ def _save_profiles(
     grid: Grid,
     target: TargetResult,
     intensity: np.ndarray,
+    annotate_crossings: bool = False,
 ) -> None:
     cx = grid.n // 2
     cy = grid.n // 2
@@ -142,10 +151,17 @@ def _save_profiles(
     fig, axes = plt.subplots(1, 2, figsize=(10.5, 4.0), dpi=160)
     axes[0].plot(grid.x_um_focus[x_view], x_norm, lw=1.5, label="actual")
     axes[0].plot(grid.x_um_focus[x_view], x_target, lw=1.0, alpha=0.75, label="target I")
-    for level in (1.0, config.metric_uniform_level, 0.5, config.free_region_threshold_intensity):
-        axes[0].axhline(level, color="k", lw=0.7, alpha=0.35)
+    _draw_threshold_lines(axes[0], config)
     axes[0].axvline(-config.target_width_um / 2.0, color="tab:red", lw=0.8, alpha=0.45)
     axes[0].axvline(config.target_width_um / 2.0, color="tab:red", lw=0.8, alpha=0.45)
+    if annotate_crossings:
+        _annotate_profile_crossings(
+            axes[0],
+            grid.x_um_focus[x_view],
+            x_norm,
+            config,
+            axis_label="x",
+        )
     axes[0].set_xlabel("x (um)")
     axes[0].set_ylabel("I / core mean")
     axes[0].set_title("x center profile")
@@ -155,10 +171,17 @@ def _save_profiles(
 
     axes[1].plot(grid.y_um_focus[y_view], y_norm, lw=1.5, label="actual")
     axes[1].plot(grid.y_um_focus[y_view], y_target, lw=1.0, alpha=0.75, label="target I")
-    for level in (1.0, config.metric_uniform_level, 0.5, config.free_region_threshold_intensity):
-        axes[1].axhline(level, color="k", lw=0.7, alpha=0.35)
+    _draw_threshold_lines(axes[1], config)
     axes[1].axvline(-config.target_height_um / 2.0, color="tab:red", lw=0.8, alpha=0.45)
     axes[1].axvline(config.target_height_um / 2.0, color="tab:red", lw=0.8, alpha=0.45)
+    if annotate_crossings:
+        _annotate_profile_crossings(
+            axes[1],
+            grid.y_um_focus[y_view],
+            y_norm,
+            config,
+            axis_label="y",
+        )
     axes[1].set_xlabel("y (um)")
     axes[1].set_ylabel("I / core mean")
     axes[1].set_title("y center profile")
@@ -168,3 +191,59 @@ def _save_profiles(
     plt.tight_layout()
     plt.savefig(path)
     plt.close(fig)
+
+
+def _draw_threshold_lines(ax: plt.Axes, config: DOEConfig) -> None:
+    lines = [
+        (1.0, "1.0", "0.25"),
+        (config.metric_uniform_level, "90%", "tab:green"),
+        (0.5, "50%", "tab:red"),
+        (config.free_region_threshold_intensity, "13.5%", "tab:purple"),
+    ]
+    for level, label, color in lines:
+        ax.axhline(level, color=color, lw=0.8, alpha=0.45, label=label if level != 1.0 else None)
+
+
+def _annotate_profile_crossings(
+    ax: plt.Axes,
+    coord_um: np.ndarray,
+    profile: np.ndarray,
+    config: DOEConfig,
+    axis_label: str,
+) -> None:
+    levels = [
+        (config.metric_uniform_level, "90%", "tab:green"),
+        (0.5, "50%", "tab:red"),
+        (config.free_region_threshold_intensity, "13.5%", "tab:purple"),
+    ]
+    edges_by_level: dict[float, tuple[float, float, float]] = {}
+    for level, label, color in levels:
+        left, right, width = _center_connected_edges(coord_um, profile, level)
+        edges_by_level[level] = (left, right, width)
+        if not (np.isfinite(left) and np.isfinite(right)):
+            continue
+        ax.scatter([left, right], [level, level], s=18, color=color, zorder=4)
+        ax.axvline(left, color=color, lw=0.75, alpha=0.35, ls="--")
+        ax.axvline(right, color=color, lw=0.75, alpha=0.35, ls="--")
+
+    edge_90 = edges_by_level[config.metric_uniform_level]
+    edge_13 = edges_by_level[config.free_region_threshold_intensity]
+    transition = _transition_width(edge_90, edge_13)
+    text = "\n".join(
+        [
+            f"{axis_label} size90={edge_90[2]:.1f} um",
+            f"{axis_label} size50={edges_by_level[0.5][2]:.1f} um",
+            f"{axis_label} size13.5={edge_13[2]:.1f} um",
+            f"13.5-90={transition:.1f} um",
+        ]
+    )
+    ax.text(
+        0.02,
+        0.96,
+        text,
+        transform=ax.transAxes,
+        va="top",
+        ha="left",
+        fontsize=8,
+        bbox={"facecolor": "white", "alpha": 0.72, "edgecolor": "none", "pad": 3.0},
+    )
