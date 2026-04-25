@@ -12,11 +12,6 @@ VARIANTS = [
     ("gs_hard_random", {"method": "gs", "target": "hard", "phase_init": "random"}),
     ("mraf_hard_random", {"method": "mraf", "target": "hard", "phase_init": "random"}),
     ("mraf_soft_quadratic", {"method": "mraf", "target": "soft", "phase_init": "quadratic"}),
-    ("mraf_rounded_rtad_quadratic", {"method": "mraf", "target": "rounded_rtad", "phase_init": "quadratic"}),
-    (
-        "wgs_rounded_rtad_quadratic",
-        {"method": "wgs-leonardo", "target": "rounded_rtad", "phase_init": "quadratic"},
-    ),
     ("wgs_mraf_soft_quadratic", {"method": "wgs-leonardo", "target": "soft", "phase_init": "quadratic"}),
     (
         "mraf_soft_astigmatic_quadratic",
@@ -41,7 +36,6 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--feedback-exponent", type=float, default=None)
     parser.add_argument("--free-region-width-x-um", type=float, default=None)
     parser.add_argument("--free-region-width-y-um", type=float, default=None)
-    parser.add_argument("--rtad-only", action="store_true")
     parser.add_argument("--min-efficiency", type=float, default=0.05)
     parser.add_argument("--min-size50-fraction", type=float, default=0.7)
     parser.add_argument("--max-size50-fraction", type=float, default=1.5)
@@ -55,12 +49,7 @@ def main() -> None:
     root = Path(args.out_root) if args.out_root else timestamped_root()
     summaries = []
 
-    variants = [
-        item
-        for item in VARIANTS
-        if (not args.soft_only or item[1]["target"] == "soft")
-        and (not args.rtad_only or item[1]["target"] == "rounded_rtad")
-    ]
+    variants = [item for item in VARIANTS if not args.soft_only or item[1]["target"] == "soft"]
     for name, overrides in variants:
         print(f"running {name} ...", flush=True)
         config = update_config(
@@ -80,12 +69,12 @@ def main() -> None:
         metrics = summary["metrics"]
         valid = (
             metrics["efficiency_in_roi"] >= args.min_efficiency
-            and args.min_size50_fraction * config.target_eval_width_um
+            and args.min_size50_fraction * config.target_width_um
             <= metrics["size_50_x"]
-            <= args.max_size50_fraction * config.target_eval_width_um
-            and args.min_size50_fraction * config.target_eval_height_um
+            <= args.max_size50_fraction * config.target_width_um
+            and args.min_size50_fraction * config.target_height_um
             <= metrics["size_50_y"]
-            <= args.max_size50_fraction * config.target_eval_height_um
+            <= args.max_size50_fraction * config.target_height_um
         )
         summaries.append({"name": name, **metrics, "valid_candidate": valid, "out_dir": summary["out_dir"]})
         print(

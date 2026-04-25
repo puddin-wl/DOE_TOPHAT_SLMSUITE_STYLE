@@ -46,10 +46,8 @@ def compute_metrics(config: DOEConfig, grid: Grid, target: TargetResult, intensi
 
     cy = grid.n // 2
     cx = grid.n // 2
-    eval_width_um = getattr(config, "target_eval_width_um", config.target_width_um)
-    eval_height_um = getattr(config, "target_eval_height_um", config.target_height_um)
-    x_roi = np.abs(grid.x_um_focus) <= eval_width_um / 2.0
-    y_roi = np.abs(grid.y_um_focus) <= eval_height_um / 2.0
+    x_roi = np.abs(grid.x_um_focus) <= config.target_width_um / 2.0
+    y_roi = np.abs(grid.y_um_focus) <= config.target_height_um / 2.0
     x_profile = intensity[cy, x_roi]
     y_profile = intensity[y_roi, cx]
     x_norm, x_p2p, x_std = _normal_profile_stats(x_profile)
