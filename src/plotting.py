@@ -100,8 +100,10 @@ def save_all_plots(
     _save_image(out_dir / "focal_intensity_log.png", log_crop, x_crop, y_crop, "log focal intensity")
 
     roi_norm = roi_normalized_intensity(target, focal_intensity)
-    ix_roi = _crop_indices(grid.x_um_focus, config.target_width_um / 2.0)
-    iy_roi = _crop_indices(grid.y_um_focus, config.target_height_um / 2.0)
+    eval_width_um = getattr(config, "target_eval_width_um", config.target_width_um)
+    eval_height_um = getattr(config, "target_eval_height_um", config.target_height_um)
+    ix_roi = _crop_indices(grid.x_um_focus, eval_width_um / 2.0)
+    iy_roi = _crop_indices(grid.y_um_focus, eval_height_um / 2.0)
     roi_crop = roi_norm[np.ix_(iy_roi, ix_roi)]
     _save_image(
         out_dir / "roi_intensity.png",
@@ -117,8 +119,10 @@ def save_all_plots(
 def _save_profiles(path: Path, config: DOEConfig, grid: Grid, intensity: np.ndarray) -> None:
     cx = grid.n // 2
     cy = grid.n // 2
-    x_roi = np.abs(grid.x_um_focus) <= config.target_width_um / 2.0
-    y_roi = np.abs(grid.y_um_focus) <= config.target_height_um / 2.0
+    eval_width_um = getattr(config, "target_eval_width_um", config.target_width_um)
+    eval_height_um = getattr(config, "target_eval_height_um", config.target_height_um)
+    x_roi = np.abs(grid.x_um_focus) <= eval_width_um / 2.0
+    y_roi = np.abs(grid.y_um_focus) <= eval_height_um / 2.0
     x_vals = intensity[cy, x_roi]
     y_vals = intensity[y_roi, cx]
     x_mean = float(np.mean(x_vals)) if x_vals.size else 0.0

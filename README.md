@@ -78,6 +78,13 @@ Slmsuite-style WGS-Leonardo polish after an MRAF run:
 python run_one.py --n 2048 --iterations 60 --method wgs-leonardo --target soft --phase-init quadratic --mraf-factor 0.5 --feedback-exponent 2.0 --initial-phase-file artifacts\compare_slmsuite_20260425-165619\mraf_soft_quadratic\phase.npy
 ```
 
+Rounded-rectangle RTAD target:
+
+```powershell
+python run_one.py --n 2048 --iterations 60 --method mraf --target rounded_rtad --phase-init quadratic --mraf-factor 1.0
+python run_one.py --n 2048 --iterations 60 --method wgs-leonardo --target rounded_rtad --phase-init quadratic --mraf-factor 1.0 --feedback-exponent 2.0 --initial-phase-file <rounded_mraf_phase.npy>
+```
+
 4096 review run:
 
 ```powershell

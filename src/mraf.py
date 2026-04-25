@@ -65,7 +65,7 @@ def apply_focal_constraint(
     if method == "gs":
         constrained[noise] = 0.0
     elif method == "mraf":
-        constrained[noise] = mraf_factor * focal_field[noise]
+        constrained[noise] = focal_field[noise] if mraf_factor == 1.0 else mraf_factor * focal_field[noise]
     else:
         raise ValueError(f"Unknown method: {method!r}")
 
@@ -83,6 +83,7 @@ def apply_focal_constraint(
         "noise_region_forced_zero": bool(
             np.any(noise) and (method == "gs" or (method == "mraf" and mraf_factor == 0))
         ),
+        "noise_region_preserved": bool(method == "mraf" and mraf_factor == 1.0),
         "zero_region_forced_zero": bool(np.any(zero)),
     }
     return constrained, stats

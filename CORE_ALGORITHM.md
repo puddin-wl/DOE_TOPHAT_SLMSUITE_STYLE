@@ -61,6 +61,30 @@ outer guard:
 
 The important fix is that the `NaN` free region is only a finite ring around the soft target, not the whole focal plane.
 
+## Rounded RTAD Target
+
+The rounded RTAD target uses a signed distance field for a rounded rectangle:
+
+```python
+qx = abs(x) - (core_width / 2 - corner_radius)
+qy = abs(y) - (core_height / 2 - corner_radius)
+outside = sqrt(max(qx, 0)**2 + max(qy, 0)**2)
+inside = min(max(qx, qy), 0)
+d = outside + inside - corner_radius
+```
+
+The amplitude is:
+
+```text
+d <= 0                         A = 1
+0 < d <= shoulder_width         A = shoulder_level
+shoulder < d <= shoulder+fall   A = shoulder_level * 0.5 * (1 + cos(pi*t))
+next noise_band                 A = NaN
+far outside                     A = 0 guard by default
+```
+
+The NaN band is the MRAF free/noise region and is never forced to zero. The far outer guard exists only to prevent whole-frame energy dumping; it can be disabled with `--rounded-rtad-no-outer-zero-guard`.
+
 ## MRAF Constraint
 
 At each iteration, the current focal field is split by the target array:

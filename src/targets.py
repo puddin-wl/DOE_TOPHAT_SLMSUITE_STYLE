@@ -25,11 +25,15 @@ def _focus_mesh_um(grid: Grid) -> tuple[np.ndarray, np.ndarray]:
     return X, Y
 
 
+def _eval_roi_mask(config: DOEConfig, X: np.ndarray, Y: np.ndarray) -> np.ndarray:
+    width = getattr(config, "target_eval_width_um", config.target_width_um)
+    height = getattr(config, "target_eval_height_um", config.target_height_um)
+    return (np.abs(X) <= width / 2.0) & (np.abs(Y) <= height / 2.0)
+
+
 def make_hard_rectangle(config: DOEConfig, grid: Grid) -> TargetResult:
     X, Y = _focus_mesh_um(grid)
-    roi = (np.abs(X) <= config.target_width_um / 2.0) & (
-        np.abs(Y) <= config.target_height_um / 2.0
-    )
+    roi = _eval_roi_mask(config, X, Y)
     amplitude = np.zeros((grid.n, grid.n), dtype=np.float64)
     amplitude[roi] = 1.0
     finite = np.ones_like(roi, dtype=bool)
@@ -73,9 +77,7 @@ def make_soft_rectangle(config: DOEConfig, grid: Grid) -> TargetResult:
     amplitude = np.zeros((grid.n, grid.n), dtype=np.float64)
     amplitude[signal] = ex[signal] * ey[signal]
 
-    roi = (np.abs(X) <= config.target_width_um / 2.0) & (
-        np.abs(Y) <= config.target_height_um / 2.0
-    )
+    roi = _eval_roi_mask(config, X, Y)
     core = (np.abs(X) <= config.core_width_um / 2.0) & (
         np.abs(Y) <= config.core_height_um / 2.0
     )
@@ -103,10 +105,77 @@ def make_soft_rectangle(config: DOEConfig, grid: Grid) -> TargetResult:
     )
 
 
+def rounded_rectangle_sdf(
+    X: np.ndarray,
+    Y: np.ndarray,
+    width_um: float,
+    height_um: float,
+    corner_radius_um: float,
+) -> np.ndarray:
+    hx = width_um / 2.0
+    hy = height_um / 2.0
+    r = min(corner_radius_um, hx, hy)
+    qx = np.abs(X) - (hx - r)
+    qy = np.abs(Y) - (hy - r)
+    outside_dist = np.sqrt(np.maximum(qx, 0.0) ** 2 + np.maximum(qy, 0.0) ** 2)
+    inside_dist = np.minimum(np.maximum(qx, qy), 0.0)
+    return outside_dist + inside_dist - r
+
+
+def make_rounded_rtad_target(config: DOEConfig, grid: Grid) -> TargetResult:
+    X, Y = _focus_mesh_um(grid)
+    d = rounded_rectangle_sdf(
+        X,
+        Y,
+        config.core_width_um,
+        config.core_height_um,
+        config.corner_radius_um,
+    )
+
+    amplitude = np.zeros((grid.n, grid.n), dtype=np.float64)
+    core = d <= 0.0
+    shoulder = (d > 0.0) & (d <= config.shoulder_width_um)
+    fall = (d > config.shoulder_width_um) & (
+        d <= config.shoulder_width_um + config.fall_width_um
+    )
+
+    amplitude[core] = 1.0
+    amplitude[shoulder] = config.shoulder_level
+    if config.fall_width_um > 0:
+        t = (d[fall] - config.shoulder_width_um) / config.fall_width_um
+        t = np.clip(t, 0.0, 1.0)
+        amplitude[fall] = config.shoulder_level * 0.5 * (1.0 + np.cos(np.pi * t))
+
+    signal = core | shoulder | fall
+    noise_start = config.shoulder_width_um + config.fall_width_um
+    noise_end = noise_start + config.noise_band_um
+    noise = (d > noise_start) & (d <= noise_end)
+    if config.rounded_rtad_outer_zero_guard:
+        zero = d > noise_end
+    else:
+        noise = d > noise_start
+        zero = np.zeros_like(noise, dtype=bool)
+    amplitude[noise] = np.nan
+    finite = ~noise
+
+    return TargetResult(
+        amplitude=amplitude,
+        roi_mask=_eval_roi_mask(config, X, Y),
+        core_mask=core,
+        transition_mask=shoulder | fall,
+        noise_mask=noise,
+        zero_mask=zero,
+        signal_mask=signal,
+        finite_mask=finite,
+    )
+
+
 def make_target(config: DOEConfig, grid: Grid) -> TargetResult:
     target = config.target.lower()
     if target == "hard":
         return make_hard_rectangle(config, grid)
     if target == "soft":
         return make_soft_rectangle(config, grid)
+    if target in {"rounded_rtad", "rounded-rtad", "rtad"}:
+        return make_rounded_rtad_target(config, grid)
     raise ValueError(f"Unknown target type: {config.target!r}")

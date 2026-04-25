@@ -20,19 +20,27 @@ class DOEConfig:
     iterations: int = 50
     seed: int = 7
 
+    target_eval_width_um: float = 330.0
+    target_eval_height_um: float = 120.0
     target_width_um: float = 330.0
     target_height_um: float = 120.0
-    core_width_um: float = 320.0
-    core_height_um: float = 100.0
+    core_width_um: float = 310.0
+    core_height_um: float = 95.0
     edge_width_x_um: float = 20.0
     edge_width_y_um: float = 50.0
     free_region_width_x_um: float = 120.0
     free_region_width_y_um: float = 120.0
+    corner_radius_um: float = 25.0
+    shoulder_width_um: float = 20.0
+    shoulder_level: float = 0.75
+    fall_width_um: float = 50.0
+    noise_band_um: float = 80.0
+    rounded_rtad_outer_zero_guard: bool = True
 
     method: str = "mraf"
-    target: str = "soft"
+    target: str = "rounded_rtad"
     phase_init: str = "astigmatic_quadratic"
-    mraf_factor: float = 0.5
+    mraf_factor: float = 1.0
     target_power_fraction: float | None = None
     normalize_input_power: bool = True
     feedback_exponent: float = 2.0

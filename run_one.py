@@ -22,7 +22,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--focus-sampling-um", type=float, default=None)
     parser.add_argument("--iterations", type=int, default=None)
     parser.add_argument("--method", choices=["gs", "mraf", "wgs-leonardo"], default=None)
-    parser.add_argument("--target", choices=["hard", "soft"], default=None)
+    parser.add_argument("--target", choices=["hard", "soft", "rounded_rtad"], default=None)
     parser.add_argument(
         "--phase-init",
         choices=["random", "quadratic", "astigmatic_quadratic", "conical_like"],
@@ -34,6 +34,14 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--feedback-exponent", type=float, default=None)
     parser.add_argument("--free-region-width-x-um", type=float, default=None)
     parser.add_argument("--free-region-width-y-um", type=float, default=None)
+    parser.add_argument("--core-width-um", type=float, default=None)
+    parser.add_argument("--core-height-um", type=float, default=None)
+    parser.add_argument("--corner-radius-um", type=float, default=None)
+    parser.add_argument("--shoulder-width-um", type=float, default=None)
+    parser.add_argument("--shoulder-level", type=float, default=None)
+    parser.add_argument("--fall-width-um", type=float, default=None)
+    parser.add_argument("--noise-band-um", type=float, default=None)
+    parser.add_argument("--rounded-rtad-no-outer-zero-guard", action="store_true")
     parser.add_argument("--initial-phase-file", default=None)
     parser.add_argument("--out-root", default=None)
     parser.add_argument("--variant-name", default=None)
@@ -96,6 +104,14 @@ def main() -> None:
         feedback_exponent=args.feedback_exponent,
         free_region_width_x_um=args.free_region_width_x_um,
         free_region_width_y_um=args.free_region_width_y_um,
+        core_width_um=args.core_width_um,
+        core_height_um=args.core_height_um,
+        corner_radius_um=args.corner_radius_um,
+        shoulder_width_um=args.shoulder_width_um,
+        shoulder_level=args.shoulder_level,
+        fall_width_um=args.fall_width_um,
+        noise_band_um=args.noise_band_um,
+        rounded_rtad_outer_zero_guard=False if args.rounded_rtad_no_outer_zero_guard else None,
     )
     if args.initial_phase_file:
         config.initial_phase_file = args.initial_phase_file
