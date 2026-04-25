@@ -33,6 +33,10 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--transition-width-13-90-x-um", type=float, default=None)
     parser.add_argument("--transition-width-13-90-y-um", type=float, default=None)
     parser.add_argument("--free-region-threshold-intensity", type=float, default=None)
+    parser.add_argument("--tail-to-free", action="store_true", default=None)
+    parser.add_argument("--tail-end-intensity", type=float, default=None)
+    parser.add_argument("--tail-width-um", type=float, default=None)
+    parser.add_argument("--side-lobe-search-width-um", type=float, default=None)
     parser.add_argument("--free-region-width-x-um", type=float, default=None)
     parser.add_argument("--free-region-width-y-um", type=float, default=None)
     parser.add_argument("--min-efficiency", type=float, default=0.05)
@@ -68,6 +72,10 @@ def main() -> None:
             transition_width_13_90_x_um=args.transition_width_13_90_x_um,
             transition_width_13_90_y_um=args.transition_width_13_90_y_um,
             free_region_threshold_intensity=args.free_region_threshold_intensity,
+            tail_to_free=args.tail_to_free,
+            tail_end_intensity=args.tail_end_intensity,
+            tail_width_um=args.tail_width_um,
+            side_lobe_search_width_um=args.side_lobe_search_width_um,
             free_region_width_x_um=args.free_region_width_x_um,
             free_region_width_y_um=args.free_region_width_y_um,
             **overrides,

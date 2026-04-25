@@ -36,6 +36,20 @@ target_transition_width_13_90_x/y_um   40.1 / 40.1
 output_transition_width_13_90_x/y_um   38.9 / 37.8
 ```
 
+Finite tail diagnostic for `transition x/y = 12/16`, `mraf_factor = 0.5`, `iterations = 80`:
+
+```text
+artifact root:
+artifacts\tail_diagnostic_20260425-2206
+
+case                 output_tw_x/y   size50_x/y    eff13   rms90   side_lobe_rel_x/y
+baseline false       16.8 / 20.5     333.9 / 123.2 0.864   0.0208  0.164 / 0.106
+tail 3%, width 12    16.8 / 20.7     333.6 / 123.6 0.842   0.0218  0.185 / 0.107
+tail 1%, width 12    17.0 / 18.5     334.6 / 122.3 0.815   0.0207  0.183 / 0.174
+```
+
+In this first test, the finite tail did not reduce the side-lobe peak. Keep `tail_to_free=false` as the current recommendation unless a later sweep finds a better tail width/end intensity.
+
 ## Best 2048 Result So Far
 
 Run:

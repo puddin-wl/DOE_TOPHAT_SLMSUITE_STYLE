@@ -23,6 +23,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--iterations", type=int, default=None)
     parser.add_argument("--method", choices=["gs", "mraf", "wgs", "wgs-leonardo"], default=None)
     parser.add_argument("--target", choices=["hard", "soft", "industrial_logistic"], default=None)
+    parser.add_argument("--target-size-50-x-um", type=float, default=None)
+    parser.add_argument("--target-size-50-y-um", type=float, default=None)
+    parser.add_argument("--corner-radius-um", type=float, default=None)
     parser.add_argument(
         "--phase-init",
         choices=["random", "quadratic", "astigmatic_quadratic", "conical_like"],
@@ -36,6 +39,10 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--transition-width-13-90-x-um", type=float, default=None)
     parser.add_argument("--transition-width-13-90-y-um", type=float, default=None)
     parser.add_argument("--free-region-threshold-intensity", type=float, default=None)
+    parser.add_argument("--tail-to-free", action="store_true", default=None)
+    parser.add_argument("--tail-end-intensity", type=float, default=None)
+    parser.add_argument("--tail-width-um", type=float, default=None)
+    parser.add_argument("--side-lobe-search-width-um", type=float, default=None)
     parser.add_argument("--free-region-width-x-um", type=float, default=None)
     parser.add_argument("--free-region-width-y-um", type=float, default=None)
     parser.add_argument("--initial-phase-file", default=None)
@@ -67,6 +74,16 @@ def run_variant(config: DOEConfig, out_dir: Path) -> dict:
     if initial_phase_file:
         config_payload["initial_phase_file"] = str(initial_phase_file)
     config_payload["beam_shape_diagnostic"] = load_bgdata_summary(config.beam_shape_file, Path.cwd())
+    config_payload["input_beam_definition"] = {
+        "type": "Gaussian intensity beam clipped by DOE clear aperture",
+        "gaussian_1e2_intensity_diameter_mm": config.gaussian_1e2_diameter_mm,
+        "gaussian_1e2_intensity_radius_w_mm": config.gaussian_1e2_diameter_mm / 2.0,
+        "intensity_formula": "I(r)=exp(-2*r^2/w^2)",
+        "amplitude_formula": "A(r)=sqrt(I)=exp(-r^2/w^2)",
+        "clear_aperture_diameter_mm": config.aperture_diameter_mm,
+        "aperture_outside_amplitude": 0.0,
+        "aperture_inside_is_uniform": False,
+    }
     config_payload["aperture_nonzero_pixels"] = int(np.count_nonzero(aperture))
     config_payload["aperture_outside_amplitude_max"] = float(
         np.max(np.abs(input_amplitude[~aperture])) if np.any(~aperture) else 0.0
@@ -79,7 +96,16 @@ def run_variant(config: DOEConfig, out_dir: Path) -> dict:
     write_json(out_dir / "config.json", config_payload)
     write_json(out_dir / "metrics.json", metrics)
     save_arrays(out_dir, result.phase, target.amplitude, result.focal_intensity)
-    save_all_plots(out_dir, config, grid, target, result.phase, result.focal_intensity, aperture)
+    save_all_plots(
+        out_dir,
+        config,
+        grid,
+        target,
+        result.phase,
+        result.focal_intensity,
+        aperture,
+        input_amplitude=input_amplitude,
+    )
 
     return {"config": config_payload, "metrics": metrics, "out_dir": str(out_dir)}
 
@@ -93,6 +119,9 @@ def main() -> None:
         iterations=args.iterations,
         method=args.method,
         target=args.target,
+        target_width_um=args.target_size_50_x_um,
+        target_height_um=args.target_size_50_y_um,
+        corner_radius_um=args.corner_radius_um,
         phase_init=args.phase_init,
         seed=args.seed,
         mraf_factor=args.mraf_factor,
@@ -102,6 +131,10 @@ def main() -> None:
         transition_width_13_90_x_um=args.transition_width_13_90_x_um,
         transition_width_13_90_y_um=args.transition_width_13_90_y_um,
         free_region_threshold_intensity=args.free_region_threshold_intensity,
+        tail_to_free=args.tail_to_free,
+        tail_end_intensity=args.tail_end_intensity,
+        tail_width_um=args.tail_width_um,
+        side_lobe_search_width_um=args.side_lobe_search_width_um,
         free_region_width_x_um=args.free_region_width_x_um,
         free_region_width_y_um=args.free_region_width_y_um,
     )
@@ -135,6 +168,11 @@ def main() -> None:
     print(f"rms_90: {summary['metrics']['rms_90']:.6g}")
     print(f"rms_50_reference: {summary['metrics']['rms_50_reference']:.6g}")
     print(f"efficiency_13p5: {summary['metrics']['efficiency_13p5']:.6g}")
+    print(
+        "side_lobe_peak_rel_x/y: "
+        f"{summary['metrics']['side_lobe_peak_x_rel_to_core']:.6g} / "
+        f"{summary['metrics']['side_lobe_peak_y_rel_to_core']:.6g}"
+    )
     print(
         "center_profile_std_x/y: "
         f"{summary['metrics']['center_profile_std_x']:.6g} / "

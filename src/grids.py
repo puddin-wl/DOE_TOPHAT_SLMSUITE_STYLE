@@ -56,6 +56,10 @@ def aperture_mask(grid: Grid, diameter_mm: float) -> np.ndarray:
 
 
 def gaussian_aperture_amplitude(config: DOEConfig, grid: Grid) -> tuple[np.ndarray, np.ndarray]:
+    # gaussian_1e2_diameter_mm is the intensity 1/e^2 diameter, not an amplitude
+    # 1/e^2 diameter. With w = diameter/2, I(r)=exp(-2*r^2/w^2) and the field
+    # amplitude is A(r)=sqrt(I)=exp(-r^2/w^2). The 15 mm aperture only clips
+    # this Gaussian; it does not make the illuminated field a uniform top-hat.
     radius_1e2_mm = config.gaussian_1e2_diameter_mm / 2.0
     gaussian = np.exp(-(grid.X_mm**2 + grid.Y_mm**2) / radius_1e2_mm**2)
     mask = aperture_mask(grid, config.aperture_diameter_mm)

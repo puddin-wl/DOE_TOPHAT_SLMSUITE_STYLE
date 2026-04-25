@@ -125,6 +125,52 @@ def _transition_width(edge_90: tuple[float, float, float], edge_13: tuple[float,
     return float(np.mean(widths)) if widths else float("nan")
 
 
+def _side_lobe_for_profile(
+    coord_um: np.ndarray,
+    normalized_profile: np.ndarray,
+    edge_13: tuple[float, float, float],
+    search_width_um: float,
+) -> dict:
+    left_edge, right_edge, _ = edge_13
+    if not (np.isfinite(left_edge) and np.isfinite(right_edge)) or search_width_um <= 0:
+        return {
+            "peak_rel": float("nan"),
+            "distance_um": float("nan"),
+            "position_um": float("nan"),
+            "side": "none",
+        }
+
+    candidates: list[dict] = []
+    windows = [
+        ("left", (coord_um >= left_edge - search_width_um) & (coord_um < left_edge), left_edge),
+        ("right", (coord_um > right_edge) & (coord_um <= right_edge + search_width_um), right_edge),
+    ]
+    for side, mask, edge in windows:
+        valid = mask & np.isfinite(normalized_profile)
+        if not np.any(valid):
+            continue
+        idxs = np.flatnonzero(valid)
+        local = idxs[int(np.argmax(normalized_profile[idxs]))]
+        position = float(coord_um[local])
+        candidates.append(
+            {
+                "peak_rel": float(normalized_profile[local]),
+                "distance_um": float(abs(position - edge)),
+                "position_um": position,
+                "side": side,
+            }
+        )
+
+    if not candidates:
+        return {
+            "peak_rel": float("nan"),
+            "distance_um": float("nan"),
+            "position_um": float("nan"),
+            "side": "none",
+        }
+    return max(candidates, key=lambda item: item["peak_rel"])
+
+
 def _profile_measurements(
     coord_x_um: np.ndarray,
     x_profile: np.ndarray,
@@ -199,6 +245,26 @@ def compute_metrics(config: DOEConfig, grid: Grid, target: TargetResult, intensi
         config.free_region_threshold_intensity,
         prefix="output",
     )
+    x_side_lobe = _side_lobe_for_profile(
+        grid.x_um_focus,
+        x_profile,
+        (
+            output_measurements["output_x_left_13p5_um"],
+            output_measurements["output_x_right_13p5_um"],
+            output_measurements["output_size_13p5_x_um"],
+        ),
+        config.side_lobe_search_width_um,
+    )
+    y_side_lobe = _side_lobe_for_profile(
+        grid.y_um_focus,
+        y_profile,
+        (
+            output_measurements["output_y_left_13p5_um"],
+            output_measurements["output_y_right_13p5_um"],
+            output_measurements["output_size_13p5_y_um"],
+        ),
+        config.side_lobe_search_width_um,
+    )
     target_measurements = _profile_measurements(
         grid.x_um_focus,
         target_x_profile,
@@ -236,6 +302,16 @@ def compute_metrics(config: DOEConfig, grid: Grid, target: TargetResult, intensi
         "center_profile_std_x": x_std,
         "center_profile_std_y": y_std,
         "center_profile_flatness_score": flatness_score,
+        "side_lobe_peak_x": float(x_side_lobe["peak_rel"] * reference) if reference > 0 else float("nan"),
+        "side_lobe_peak_y": float(y_side_lobe["peak_rel"] * reference) if reference > 0 else float("nan"),
+        "side_lobe_peak_x_rel_to_core": x_side_lobe["peak_rel"],
+        "side_lobe_peak_y_rel_to_core": y_side_lobe["peak_rel"],
+        "side_lobe_distance_x_um": x_side_lobe["distance_um"],
+        "side_lobe_distance_y_um": y_side_lobe["distance_um"],
+        "side_lobe_position_x_um": x_side_lobe["position_um"],
+        "side_lobe_position_y_um": y_side_lobe["position_um"],
+        "side_lobe_side_x": x_side_lobe["side"],
+        "side_lobe_side_y": y_side_lobe["side"],
         "reference_intensity": reference,
         "reference_source": reference_source,
         "target_13p5_pixel_count": int(np.count_nonzero(mask_13)),

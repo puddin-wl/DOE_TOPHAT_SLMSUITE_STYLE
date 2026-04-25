@@ -22,12 +22,17 @@ class DOEConfig:
 
     target_width_um: float = 330.0
     target_height_um: float = 120.0
+    corner_radius_um: float = 0.0
     transition_width_13_90_um: float = 40.0
     transition_width_13_90_x_um: float | None = None
     transition_width_13_90_y_um: float | None = None
     free_region_threshold_intensity: float = 0.135
+    tail_to_free: bool = False
+    tail_end_intensity: float = 0.03
+    tail_width_um: float = 12.0
     metric_core_level: float = 0.95
     metric_uniform_level: float = 0.90
+    side_lobe_search_width_um: float = 250.0
     core_width_um: float = 320.0
     core_height_um: float = 100.0
     edge_width_x_um: float = 20.0

@@ -130,17 +130,38 @@ def make_industrial_logistic_target(config: DOEConfig, grid: Grid) -> TargetResu
     sy = transition_y / 4.055
     ix = 1.0 / (1.0 + np.exp(np.clip(dx / sx, -80.0, 80.0)))
     iy = 1.0 / (1.0 + np.exp(np.clip(dy / sy, -80.0, 80.0)))
-    intensity = np.minimum(ix, iy)
+    base_intensity = np.minimum(ix, iy)
 
     threshold = float(config.free_region_threshold_intensity)
-    finite = intensity >= threshold
+    if not (0.0 < threshold < 1.0):
+        raise ValueError("free_region_threshold_intensity must be between 0 and 1")
+
+    finite = base_intensity >= threshold
+    constrained_intensity = np.array(base_intensity, copy=True)
+
+    if config.tail_to_free:
+        if not (0.0 < config.tail_end_intensity < threshold):
+            raise ValueError("tail_end_intensity must be between 0 and free_region_threshold_intensity")
+        if config.tail_width_um <= 0:
+            raise ValueError("tail_width_um must be positive when tail_to_free is enabled")
+
+        d13_x = sx * np.log(1.0 / threshold - 1.0)
+        d13_y = sy * np.log(1.0 / threshold - 1.0)
+        distance_past_13 = np.maximum(dx - d13_x, dy - d13_y)
+        tail = (distance_past_13 > 0.0) & (distance_past_13 <= config.tail_width_um)
+        u = np.clip(distance_past_13[tail] / config.tail_width_um, 0.0, 1.0)
+        constrained_intensity[tail] = config.tail_end_intensity + (
+            threshold - config.tail_end_intensity
+        ) * 0.5 * (1.0 + np.cos(np.pi * u))
+        finite = finite | tail
+
     noise = ~finite
 
     amplitude = np.full((grid.n, grid.n), np.nan, dtype=np.float64)
-    amplitude[finite] = np.sqrt(intensity[finite])
+    amplitude[finite] = np.sqrt(constrained_intensity[finite])
 
-    roi = intensity >= 0.5
-    core = intensity >= config.metric_uniform_level
+    roi = base_intensity >= 0.5
+    core = base_intensity >= config.metric_uniform_level
     transition = finite & ~core
     zero = np.zeros_like(finite, dtype=bool)
 
@@ -153,7 +174,7 @@ def make_industrial_logistic_target(config: DOEConfig, grid: Grid) -> TargetResu
         zero_mask=zero,
         signal_mask=finite,
         finite_mask=finite,
-        intensity=intensity,
+        intensity=constrained_intensity,
     )
 
 
