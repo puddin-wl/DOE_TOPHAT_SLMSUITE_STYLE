@@ -329,6 +329,93 @@ python run_one.py --n 2048 --iterations 100 --method wgs --target industrial_log
 python run_one.py --n 2048 --iterations 100 --method wgs --target industrial_logistic --phase-init quadratic --target-size-50-x-um 330 --target-size-50-y-um 116 --transition-width-13-90-x-um 12 --transition-width-13-90-y-um 16 --feedback-exponent 2.0 --mraf-factor 0.45 --descending-edge-mode none
 ```
 
+## 2026-04-26 MRAF Fine Sweep
+
+Ran the approved small 2048-only MRAF sweep. No 4096 run, no descending-edge continuation, and no guard band implementation.
+
+Fixed parameters:
+
+```text
+n                              2048
+iterations                     100
+method                         wgs
+target                         industrial_logistic
+phase_init                     quadratic
+target_size_50_x/y_um          330 / 116
+transition_width_13_90_x/y_um  12 / 16
+feedback_exponent              2.0
+descending_edge_mode           none
+```
+
+Run:
+
+```powershell
+python run_sweep_mraf_fine.py
+```
+
+Outputs:
+
+```text
+artifacts\mraf_fine_20260426-025728\summary_mraf_fine.csv
+artifacts\mraf_fine_20260426-025728\edge_spike_mraf_fine_montage.png
+artifacts\mraf_fine_20260426-025728\center_profile_mraf_fine_montage.png
+artifacts\mraf_fine_20260426-025728\derivative_lobe_mraf_fine_montage.png
+```
+
+Summary:
+
+```text
+mraf   output50_x/y     output_tw_x/y    eff13    rms90     std_x/std_y      outside_x/y   deriv_x/y  count
+0.350  335.198/120.295  19.123/21.906   0.8887   0.018881  0.0578/0.1012   0.0927/0.0463 nan/nan    0
+0.375  335.088/120.216  18.915/21.712   0.8872   0.018806  0.0580/0.1013   0.0957/0.0494 nan/nan    0
+0.400  334.992/120.124  18.694/21.491   0.8852   0.018719  0.0581/0.1014   0.0997/0.0532 nan/nan    0
+0.425  334.902/120.025  18.441/21.245   0.8827   0.018615  0.0581/0.1016   0.1050/0.0575 0.0941/nan 2
+0.450  334.749/119.892  18.106/20.921   0.8790   0.018522  0.0583/0.1020   0.1125/0.0632 0.1001/nan 2
+```
+
+Selections requested separately:
+
+```text
+1. Closest output size to 330 x 120:
+   mraf_factor = 0.45, output50 = 334.749 x 119.892 um.
+
+2. Lowest rms_90:
+   mraf_factor = 0.45, rms_90 = 0.018522.
+
+3. Lowest derivative side-lobe:
+   mraf_factor = 0.35 / 0.375 / 0.40 all have detection count 0 under the nominal derivative metric.
+   Among these, 0.35 has the lowest outside_max reference: 0.0927 / 0.0463.
+
+4. Comprehensive recommendation:
+   mraf_factor = 0.40.
+   It keeps derivative side-lobe detection count at 0 like 0.35/0.375, improves size and rms_90 versus 0.35/0.375, and avoids the new x-side derivative lobe that appears at 0.425/0.45.
+```
+
+Next-base decision:
+
+```text
+Use mraf_factor = 0.40 as the next base.
+Do not use 0.45 as base yet: it is best for size and rms_90, but derivative side-lobe count becomes 2 and outside_max increases.
+Do not use 0.35 as base unless side-lobe suppression becomes more important than size/rms; it is slightly oversized in x.
+```
+
+Target-size precomp decision:
+
+```text
+Yes, a small target_size_50_x precomp is useful before any final review.
+All valid fine-sweep cases remain oversized in x by about 4.75 to 5.20 um, while y is already close to 120 um.
+Recommended next small precomp around mraf_factor=0.40:
+target_size_50_x_um = [325, 326, 327]
+target_size_50_y_um = 116 fixed
+```
+
+Guard-band decision:
+
+```text
+Still no guard band needed.
+The best balanced case has zero derivative side-lobe detections under the nominal metric, and the remaining issue is mostly x-size precomp rather than uncontrolled free-region spikes.
+```
+
 ## Current Industrial Transition Check
 
 Best aggressive edge candidate from the first focused 2048 sweep:
