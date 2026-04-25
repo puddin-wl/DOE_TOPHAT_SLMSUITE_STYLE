@@ -112,7 +112,7 @@ weights = normalize(weights)
 Default:
 
 ```text
-feedback_exponent = 0.8
+feedback_exponent = 2.0
 ```
 
 This is not hardware feedback. It uses only the simulated focal field in the current iteration.

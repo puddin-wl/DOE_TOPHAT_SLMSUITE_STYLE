@@ -35,7 +35,7 @@ class DOEConfig:
     mraf_factor: float = 0.5
     target_power_fraction: float | None = None
     normalize_input_power: bool = True
-    feedback_exponent: float = 0.8
+    feedback_exponent: float = 2.0
 
     quadratic_strength: float = 7.0
     astigmatic_strength_x: float = 8.0

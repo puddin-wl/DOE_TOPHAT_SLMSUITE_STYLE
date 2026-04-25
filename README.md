@@ -75,7 +75,7 @@ python run_one.py --n 2048 --iterations 50 --method mraf --target soft --phase-i
 Slmsuite-style WGS-Leonardo polish after an MRAF run:
 
 ```powershell
-python run_one.py --n 2048 --iterations 60 --method wgs-leonardo --target soft --phase-init quadratic --mraf-factor 0.5 --feedback-exponent 0.8 --initial-phase-file artifacts\compare_slmsuite_20260425-165619\mraf_soft_quadratic\phase.npy
+python run_one.py --n 2048 --iterations 60 --method wgs-leonardo --target soft --phase-init quadratic --mraf-factor 0.5 --feedback-exponent 2.0 --initial-phase-file artifacts\compare_slmsuite_20260425-165619\mraf_soft_quadratic\phase.npy
 ```
 
 4096 review run:
@@ -103,7 +103,7 @@ For the soft target, finite pixels are constrained:
 
 In MRAF, `NaN` target pixels keep their current complex focal field. They are not forced to zero. The DOE plane then restores only the input amplitude, `5 mm Gaussian x 15 mm aperture`, and keeps the returned phase.
 
-The default free ring width is 120 um in x and y. The default `mraf_factor` is 0.5, so the free ring is relaxed but not zeroed. The target weights and input amplitude are normalized in the slmsuite style. Optional `wgs-leonardo` updates target weights from the simulated focal-plane feedback; it is computational only and does not use camera feedback.
+The default free ring width is 120 um in x and y. The default `mraf_factor` is 0.5, so the free ring is relaxed but not zeroed. The target weights and input amplitude are normalized in the slmsuite style. Optional `wgs-leonardo` updates target weights from the simulated focal-plane feedback; it is computational only and does not use camera feedback. For the current 2048 tuning, `feedback_exponent=2.0` is the best tested value so far.
 
 See `CORE_ALGORITHM.md` for the compact algorithm summary and pseudocode.
 

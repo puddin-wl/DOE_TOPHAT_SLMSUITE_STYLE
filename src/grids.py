@@ -72,7 +72,12 @@ def lens_pupil_mask(config: DOEConfig, grid: Grid) -> np.ndarray:
 
 
 def load_bgdata_summary(path: str | Path, root: Path | None = None) -> dict:
+    root = root or Path.cwd()
     resolved = resolve_project_path(path, root)
+    if not resolved.exists():
+        matches = list(root.rglob(Path(path).name))
+        if matches:
+            resolved = matches[0]
     summary: dict = {
         "path": str(resolved),
         "exists": resolved.exists(),
