@@ -265,6 +265,70 @@ Keep the interface for future controlled experiments, but do not use descending_
 Current best remains: target_size_50_x/y=330/116, transition=12/16, mraf_factor=0.4, feedback_exponent=2.0, descending_edge_mode=none.
 ```
 
+## 2026-04-26 Derivative Side-Lobe Sensitivity Re-Analysis
+
+No new DOE simulation was run for this check. Existing artifacts were re-analyzed with different derivative side-lobe detection settings.
+
+Cases:
+
+```text
+base_size_precomp_x330_y116  artifacts\size_precomp\20260425-231857\wgs_size50_x330_y116
+feedback_exp_08              artifacts\single_knob_20260426-0000\feedback_exp_08
+mraf_04                      artifacts\single_knob_20260426-0000\mraf_04
+mraf_06                      artifacts\single_knob_20260426-0000\mraf_06
+```
+
+Sensitivity grid:
+
+```text
+side_lobe_smoothing_sigma_um       2.5, 5.0, 7.5
+side_lobe_prominence_threshold     0.01, 0.02, 0.03
+side_lobe_crossing_margin_um       2.5, 5.0
+```
+
+Outputs:
+
+```text
+artifacts\lobe_sensitivity_20260426\summary_lobe_sensitivity.csv
+artifacts\lobe_sensitivity_20260426\summary_lobe_sensitivity_by_case.csv
+```
+
+Per-case sensitivity summary:
+
+```text
+case                         settings  detected_count_min/max  no-detect settings  strongest_peak_min/max  outside_max_x/y
+base_size_precomp_x330_y116  18        4 / 4                   0                   0.0899 / 0.1734       0.1789 / 0.1100
+feedback_exp_08              18        2 / 4                   0                   0.0601 / 0.1342       0.1353 / 0.0710
+mraf_04                      18        0 / 4                   10                  0.0490 / 0.0942       0.0969 / 0.0623
+mraf_06                      18        4 / 4                   0                   29.3616 / 55.4944     35.6509 / 56.3951
+```
+
+Answers:
+
+```text
+1. Is mraf_04 still better than base under stricter settings?
+   Yes. Base always has derivative side lobes in all four directions for all 18 settings.
+   mraf_04 has lower outside_max and lower derivative peaks when peaks are detected.
+   Even at the strictest low-prominence settings, mraf_04 peaks top out at about 0.0942, below base's max 0.1734.
+
+2. Is mraf_04 nan/nan a true no-local-peak result or prominence filtering?
+   It is partly prominence/smoothing sensitive, not an absolute absence of any local peak.
+   At sigma=5.0 or 7.5 with prominence >=0.02, no derivative side lobe is detected.
+   At sigma=2.5 and/or prominence=0.01, small local peaks are detected around 0.0490 to 0.0942.
+   Interpretation: mraf_04 suppresses the lobes below the nominal threshold, but weak residual local peaks exist under stricter detection.
+
+3. Can mraf_04 be used as the next mraf fine-sweep base?
+   Yes. It remains the best base for the next small sweep because it is size-valid, has the best rms_90 from the previous single-knob test, and is robustly better than base/feedback_exp_08/mraf_06 in this sensitivity check.
+```
+
+Approved next small DOE run, only after this sensitivity check:
+
+```powershell
+python run_one.py --n 2048 --iterations 100 --method wgs --target industrial_logistic --phase-init quadratic --target-size-50-x-um 330 --target-size-50-y-um 116 --transition-width-13-90-x-um 12 --transition-width-13-90-y-um 16 --feedback-exponent 2.0 --mraf-factor 0.35 --descending-edge-mode none
+python run_one.py --n 2048 --iterations 100 --method wgs --target industrial_logistic --phase-init quadratic --target-size-50-x-um 330 --target-size-50-y-um 116 --transition-width-13-90-x-um 12 --transition-width-13-90-y-um 16 --feedback-exponent 2.0 --mraf-factor 0.40 --descending-edge-mode none
+python run_one.py --n 2048 --iterations 100 --method wgs --target industrial_logistic --phase-init quadratic --target-size-50-x-um 330 --target-size-50-y-um 116 --transition-width-13-90-x-um 12 --transition-width-13-90-y-um 16 --feedback-exponent 2.0 --mraf-factor 0.45 --descending-edge-mode none
+```
+
 ## Current Industrial Transition Check
 
 Best aggressive edge candidate from the first focused 2048 sweep:
