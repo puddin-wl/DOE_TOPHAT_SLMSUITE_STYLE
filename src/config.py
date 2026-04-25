@@ -27,6 +27,9 @@ class DOEConfig:
     transition_width_13_90_x_um: float | None = None
     transition_width_13_90_y_um: float | None = None
     free_region_threshold_intensity: float = 0.135
+    descending_edge_mode: str = "none"
+    descending_edge_width_um: float = 0.0
+    descending_edge_end_intensity: float = 0.03
     tail_to_free: bool = False
     tail_end_intensity: float = 0.03
     tail_width_um: float = 12.0

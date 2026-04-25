@@ -139,19 +139,30 @@ def make_industrial_logistic_target(config: DOEConfig, grid: Grid) -> TargetResu
     finite = base_intensity >= threshold
     constrained_intensity = np.array(base_intensity, copy=True)
 
-    if config.tail_to_free:
-        if not (0.0 < config.tail_end_intensity < threshold):
-            raise ValueError("tail_end_intensity must be between 0 and free_region_threshold_intensity")
-        if config.tail_width_um <= 0:
-            raise ValueError("tail_width_um must be positive when tail_to_free is enabled")
+    descending_edge_mode = config.descending_edge_mode.lower()
+    use_legacy_tail = bool(config.tail_to_free)
+    use_descending_edge = descending_edge_mode != "none" or use_legacy_tail
+    if use_descending_edge:
+        if descending_edge_mode not in {"none", "raised_cosine"}:
+            raise ValueError(f"Unknown descending_edge_mode: {config.descending_edge_mode!r}")
+        tail_end_intensity = (
+            config.tail_end_intensity if use_legacy_tail else config.descending_edge_end_intensity
+        )
+        tail_width_um = config.tail_width_um if use_legacy_tail else config.descending_edge_width_um
+        if not (0.0 < tail_end_intensity < threshold):
+            raise ValueError(
+                "descending edge end intensity must be between 0 and free_region_threshold_intensity"
+            )
+        if tail_width_um <= 0:
+            raise ValueError("descending edge width must be positive when enabled")
 
         d13_x = sx * np.log(1.0 / threshold - 1.0)
         d13_y = sy * np.log(1.0 / threshold - 1.0)
         distance_past_13 = np.maximum(dx - d13_x, dy - d13_y)
-        tail = (distance_past_13 > 0.0) & (distance_past_13 <= config.tail_width_um)
-        u = np.clip(distance_past_13[tail] / config.tail_width_um, 0.0, 1.0)
-        constrained_intensity[tail] = config.tail_end_intensity + (
-            threshold - config.tail_end_intensity
+        tail = (distance_past_13 > 0.0) & (distance_past_13 <= tail_width_um)
+        u = np.clip(distance_past_13[tail] / tail_width_um, 0.0, 1.0)
+        constrained_intensity[tail] = tail_end_intensity + (
+            threshold - tail_end_intensity
         ) * 0.5 * (1.0 + np.cos(np.pi * u))
         finite = finite | tail
 

@@ -39,6 +39,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--transition-width-13-90-x-um", type=float, default=None)
     parser.add_argument("--transition-width-13-90-y-um", type=float, default=None)
     parser.add_argument("--free-region-threshold-intensity", type=float, default=None)
+    parser.add_argument("--descending-edge-mode", choices=["none", "raised_cosine"], default=None)
+    parser.add_argument("--descending-edge-width-um", type=float, default=None)
+    parser.add_argument("--descending-edge-end-intensity", type=float, default=None)
     parser.add_argument("--tail-to-free", action="store_true", default=None)
     parser.add_argument("--tail-end-intensity", type=float, default=None)
     parser.add_argument("--tail-width-um", type=float, default=None)
@@ -135,6 +138,9 @@ def main() -> None:
         transition_width_13_90_x_um=args.transition_width_13_90_x_um,
         transition_width_13_90_y_um=args.transition_width_13_90_y_um,
         free_region_threshold_intensity=args.free_region_threshold_intensity,
+        descending_edge_mode=args.descending_edge_mode,
+        descending_edge_width_um=args.descending_edge_width_um,
+        descending_edge_end_intensity=args.descending_edge_end_intensity,
         tail_to_free=args.tail_to_free,
         tail_end_intensity=args.tail_end_intensity,
         tail_width_um=args.tail_width_um,
