@@ -84,3 +84,22 @@ Selection reporting:
 2. Lowest `rms_90`.
 3. Lowest derivative side-lobe.
 4. Recommended next base case.
+
+## Next Plan: Outside-Peak Detection and Target Definition Audit
+
+Date: 2026-04-26
+
+Scope:
+- Do not run new DOE sweeps.
+- Do not run 4096.
+- Do not enable descending edge.
+- Do not change transition, feedback exponent, or guard band behavior.
+- Fix diagnostic logic and audit target definitions only.
+
+Tasks:
+1. Convert left/right profile sides into an outward coordinate measured away from the 13.5% target edge.
+2. Detect true outside intensity peaks where dI/ds changes from positive to negative in outward coordinate.
+3. Add first/strongest outside peak metrics and detection count.
+4. Update edge diagnostic montage markers to show true outside intensity peaks.
+5. Audit industrial_logistic defaults: free_region_threshold_intensity, descending_edge_mode, tail_to_free, descending_edge end/width.
+6. Document that industrial_logistic uses min(ix, iy), i.e. a soft-edged rectangle, not a rounded-rectangle signed-distance target.
