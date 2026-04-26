@@ -161,3 +161,24 @@ Tasks:
 3. Read existing frozen best and rounded single-case artifacts only; generate output profile comparison plots and montage.
 4. Write `diagnosis_summary.json` with mechanism explanations.
 5. Update `RESULTS.md` with an explanation-only section, not an optimization recommendation.
+
+## Next Plan: Smooth-Tail Rounded Target Preview
+
+Date: 2026-04-26
+
+Scope:
+- Do not run solve_phase.
+- Do not sweep.
+- Do not run 4096.
+- Do not change frozen best recipe, MRAF factor, feedback exponent, descending edge, or guard band behavior.
+- Add a target-only candidate and diagnostics only.
+
+Tasks:
+1. Add `industrial_rounded_logistic_smooth_tail` while preserving existing targets.
+2. Keep rounded-rectangle SDF geometry and preserve 50% FWHM target sizing.
+3. Keep transition width parameters as nominal 13.5%-90% controls.
+4. Add x/y controlled tail width parameters with defaults x=2*transition_x and y=1*transition_y.
+5. Implement a Hermite smooth tail that matches intensity and slope at 13.5% and ends near zero slope at the tail end.
+6. Extend CLI and target preview/diagnosis paths for target-only validation.
+7. Generate target-only plots and `diagnosis_summary_smooth_tail.json` without reading or running a new DOE solve.
+8. Update `RESULTS.md` to record smooth-tail as a candidate target only.
