@@ -570,6 +570,54 @@ The rounded target changes corner geometry and adds a controlled tail region bel
 This target is only a future candidate; it is not promoted over the frozen current best recipe until a separate small DOE test is explicitly requested.
 ```
 
+## 2026-04-26 Rounded Logistic Single-Case Validation
+
+Ran exactly one new 2048 DOE case for `industrial_rounded_logistic`. No sweep, no 4096, no guard band, no feedback/MRAF changes, and legacy descending edge remained off.
+
+Pre-run checks:
+
+```text
+run_one.py supports target=industrial_rounded_logistic.
+controlled_tail_end_intensity and controlled_tail_width_um are present in DOEConfig and serialize through config.to_dict().
+Target preview center profile confirms 50% size is preserved: x=330.0 um, y=116.016 um.
+Target preview effective 13.5%-90% widths with controlled tail are x=13.997 um, y=17.867 um, slightly wider than the nominal 12/16 logistic edge because the rounded target continues a controlled tail below 13.5%.
+```
+
+Run:
+
+```powershell
+python run_one.py --n 2048 --iterations 100 --method wgs --target industrial_rounded_logistic --phase-init quadratic --target-size-50-x-um 330 --target-size-50-y-um 116 --transition-width-13-90-x-um 12 --transition-width-13-90-y-um 16 --mraf-factor 0.40 --feedback-exponent 2.0 --descending-edge-mode none --out-root artifacts\rounded_logistic_single_20260426 --variant-name rounded_logistic_single
+```
+
+Outputs:
+
+```text
+artifacts\rounded_logistic_single_20260426\rounded_logistic_single
+artifacts\rounded_logistic_single_20260426\rounded_logistic_single\metrics.json
+artifacts\rounded_logistic_single_20260426\rounded_logistic_single\edge_spike_diagnostic.png
+artifacts\rounded_logistic_single_20260426\rounded_logistic_single\center_profiles.png
+artifacts\rounded_logistic_single_20260426\rounded_logistic_single\focal_intensity.png
+artifacts\rounded_logistic_single_20260426\compare_frozen_vs_rounded.csv
+```
+
+Comparison against frozen best:
+
+```text
+target                         output50_x/y    trans_x/y      rms90     eff13    std_x/std_y     outside_x/y     first_peak_x/y  strongest_peak_x/y  count
+industrial_logistic             334.992/120.124 18.694/21.491 0.018719 0.8852  0.0581/0.1014  0.0997/0.0532  nan/nan         nan/nan            0
+industrial_rounded_logistic     335.202/120.996 19.645/23.924 0.020215 0.8942  0.0580/0.0999  0.0800/0.0668  nan/nan         nan/nan            0
+```
+
+Conclusion by the requested rules:
+
+```text
+The rounded target has outside_peak_detection_count = 0, same as frozen best.
+It lowers outside_max_x from 0.0997 to 0.0800, but outside_max_y increases from 0.0532 to 0.0668.
+It increases efficiency_13p5, but output size and rms_90 are worse: y size grows to 120.996 um and rms_90 rises from 0.018719 to 0.020215.
+Therefore it is a candidate, not a replacement for the frozen best.
+Frozen best remains industrial_logistic + mraf_factor=0.40.
+```
+
 ## Current Industrial Transition Check
 
 Best aggressive edge candidate from the first focused 2048 sweep:
