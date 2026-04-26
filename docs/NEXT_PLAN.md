@@ -143,3 +143,21 @@ Pre-run confirmations:
 Run:
 - `variant_name=rounded_logistic_single`
 - fixed recipe from frozen best except target type.
+
+## Next Plan: industrial_rounded_logistic Shape Diagnosis
+
+Date: 2026-04-26
+
+Scope:
+- Do not run new DOE solve_phase.
+- Do not sweep.
+- Do not run 4096.
+- Do not change frozen best recipe, MRAF factor, feedback exponent, descending edge, or guard band.
+- Analyze target shape and existing frozen/rounded outputs only.
+
+Tasks:
+1. Inspect `industrial_rounded_logistic` SDF, corner radius, controlled tail defaults, effective threshold crossings, and derivative continuity.
+2. Generate target-only diagnostic plots for rounded target profiles, derivatives, overlay, and region masks.
+3. Read existing frozen best and rounded single-case artifacts only; generate output profile comparison plots and montage.
+4. Write `diagnosis_summary.json` with mechanism explanations.
+5. Update `RESULTS.md` with an explanation-only section, not an optimization recommendation.
