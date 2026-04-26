@@ -182,3 +182,33 @@ Tasks:
 6. Extend CLI and target preview/diagnosis paths for target-only validation.
 7. Generate target-only plots and `diagnosis_summary_smooth_tail.json` without reading or running a new DOE solve.
 8. Update `RESULTS.md` to record smooth-tail as a candidate target only.
+
+## Next Plan: Smooth-Tail Single-Case Validation
+
+Date: 2026-04-26
+
+Scope:
+- Run exactly one 2048 DOE solve: `target=industrial_rounded_logistic_smooth_tail`.
+- Do not sweep.
+- Do not run 4096.
+- Do not change frozen best recipe, MRAF factor, feedback exponent, descending edge, or guard band behavior.
+- Compare the new smooth-tail single case against existing frozen best and old rounded single artifacts only.
+
+Fixed run:
+- `n=2048`
+- `iterations=100`
+- `method=wgs`
+- `phase_init=quadratic`
+- `target_size_50_x/y=330/116 um`
+- `transition_width_13_90_x/y=12/16 um`
+- `mraf_factor=0.40`
+- `feedback_exponent=2.0`
+- `descending_edge_mode=none`
+- `controlled_tail_end_intensity=0.03`
+- `controlled_tail_width_x/y=24/16 um`
+
+Outputs:
+1. Save normal single-case artifacts under `artifacts/smooth_tail_single_<timestamp>/smooth_tail_single`.
+2. Generate `compare_frozen_rounded_smooth_tail.csv` from existing metrics plus the new single case.
+3. Generate profile, edge-spike, and focal-intensity three-way comparison plots.
+4. Update `RESULTS.md` with validation results while keeping frozen best as baseline.
