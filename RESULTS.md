@@ -756,6 +756,60 @@ The tail-to-free boundary is still the end of the constrained target at 3%, foll
 This target is only a candidate. It should not replace the frozen best unless a later explicitly requested single-case DOE validation improves outside peaks, size, and rms together.
 ```
 
+## 2026-04-26 industrial_rounded_logistic_smooth_tail single-case validation
+
+Ran exactly one new DOE solve for the smooth-tail target. No sweep, no 4096 run, no guard band, no MRAF/feedback change, no legacy descending edge, and no frozen-best replacement were performed.
+
+Run command:
+
+```powershell
+python run_one.py --n 2048 --iterations 100 --method wgs --target industrial_rounded_logistic_smooth_tail --phase-init quadratic --target-size-50-x-um 330 --target-size-50-y-um 116 --transition-width-13-90-x-um 12 --transition-width-13-90-y-um 16 --mraf-factor 0.40 --feedback-exponent 2.0 --descending-edge-mode none --controlled-tail-end-intensity 0.03 --controlled-tail-width-x-um 24 --controlled-tail-width-y-um 16 --out-root artifacts\smooth_tail_single_20260426-211623 --variant-name smooth_tail_single
+```
+
+Output artifacts:
+
+```text
+artifacts\smooth_tail_single_20260426-211623\smooth_tail_single
+artifacts\smooth_tail_single_20260426-211623\smooth_tail_single\config.json
+artifacts\smooth_tail_single_20260426-211623\smooth_tail_single\metrics.json
+artifacts\smooth_tail_single_20260426-211623\smooth_tail_single\phase.npy
+artifacts\smooth_tail_single_20260426-211623\smooth_tail_single\target.npy
+artifacts\smooth_tail_single_20260426-211623\smooth_tail_single\target_amplitude.npy
+artifacts\smooth_tail_single_20260426-211623\smooth_tail_single\focal_intensity.npy
+artifacts\smooth_tail_single_20260426-211623\smooth_tail_single\focal_intensity.png
+artifacts\smooth_tail_single_20260426-211623\smooth_tail_single\center_profiles.png
+artifacts\smooth_tail_single_20260426-211623\smooth_tail_single\edge_spike_diagnostic.png
+```
+
+Three-way comparison outputs:
+
+```text
+artifacts\smooth_tail_single_20260426-211623\compare_frozen_rounded_smooth_tail.csv
+artifacts\smooth_tail_single_20260426-211623\output_x_profile_frozen_vs_rounded_vs_smooth_tail.png
+artifacts\smooth_tail_single_20260426-211623\output_y_profile_frozen_vs_rounded_vs_smooth_tail.png
+artifacts\smooth_tail_single_20260426-211623\edge_spike_frozen_vs_rounded_vs_smooth_tail_montage.png
+artifacts\smooth_tail_single_20260426-211623\focal_intensity_frozen_vs_rounded_vs_smooth_tail_montage.png
+```
+
+Key metrics:
+
+```text
+target_type                              output50_x/y      size_err   trans_x/y     rms90     eff13    std_x/std_y      outside_x/y    first_peak_x/y   strong_peak_x/y  peak_count
+industrial_logistic                      334.992/120.124   5.116      18.694/21.491 0.018719 0.8852  0.0581/0.1014   0.0997/0.0532 nan/nan          nan/nan          0
+industrial_rounded_logistic              335.202/120.996   6.198      19.645/23.924 0.020215 0.8942  0.0580/0.0999   0.0800/0.0668 nan/nan          nan/nan          0
+industrial_rounded_logistic_smooth_tail   37.781/49.040   363.179      3.524/2.927  4.134987 0.0408  1.9755/11.1816  2.4181/5.2581 0.8061/1.0651  2.2941/5.0237  4
+```
+
+Validation decision:
+
+```text
+The smooth-tail single case is not recommended.
+It triggered outside_peak_detection_count = 4, collapsed output50 size to 37.8 x 49.0 um, reduced efficiency_13p5 to 0.04085, and increased rms_90 to 4.135.
+Although the target-only smooth-tail profile looked more C1 at the 13.5% handoff, this specific DOE solve result is far worse than both frozen best and old rounded single.
+The frozen best remains industrial_logistic + mraf_factor=0.40 + feedback_exponent=2.0 + descending_edge_mode=none.
+Do not replace the baseline with smooth-tail based on this validation.
+```
+
 ## Current Industrial Transition Check
 
 Best aggressive edge candidate from the first focused 2048 sweep:
