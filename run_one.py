@@ -22,7 +22,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--focus-sampling-um", type=float, default=None)
     parser.add_argument("--iterations", type=int, default=None)
     parser.add_argument("--method", choices=["gs", "mraf", "wgs", "wgs-leonardo"], default=None)
-    parser.add_argument("--target", choices=["hard", "soft", "industrial_logistic"], default=None)
+    parser.add_argument("--target", choices=["hard", "soft", "industrial_logistic", "industrial_rounded_logistic"], default=None)
     parser.add_argument("--target-size-50-x-um", type=float, default=None)
     parser.add_argument("--target-size-50-y-um", type=float, default=None)
     parser.add_argument("--corner-radius-um", type=float, default=None)
@@ -42,6 +42,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--descending-edge-mode", choices=["none", "raised_cosine"], default=None)
     parser.add_argument("--descending-edge-width-um", type=float, default=None)
     parser.add_argument("--descending-edge-end-intensity", type=float, default=None)
+    parser.add_argument("--controlled-tail-end-intensity", type=float, default=None)
+    parser.add_argument("--controlled-tail-width-um", type=float, default=None)
     parser.add_argument("--tail-to-free", action="store_true", default=None)
     parser.add_argument("--tail-end-intensity", type=float, default=None)
     parser.add_argument("--tail-width-um", type=float, default=None)
@@ -141,6 +143,8 @@ def main() -> None:
         descending_edge_mode=args.descending_edge_mode,
         descending_edge_width_um=args.descending_edge_width_um,
         descending_edge_end_intensity=args.descending_edge_end_intensity,
+        controlled_tail_end_intensity=args.controlled_tail_end_intensity,
+        controlled_tail_width_um=args.controlled_tail_width_um,
         tail_to_free=args.tail_to_free,
         tail_end_intensity=args.tail_end_intensity,
         tail_width_um=args.tail_width_um,

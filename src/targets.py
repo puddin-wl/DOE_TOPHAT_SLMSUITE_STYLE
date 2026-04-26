@@ -189,6 +189,109 @@ def make_industrial_logistic_target(config: DOEConfig, grid: Grid) -> TargetResu
     )
 
 
+def _transition_widths(config: DOEConfig) -> tuple[float, float]:
+    transition_x = (
+        config.transition_width_13_90_x_um
+        if config.transition_width_13_90_x_um is not None
+        else config.transition_width_13_90_um
+    )
+    transition_y = (
+        config.transition_width_13_90_y_um
+        if config.transition_width_13_90_y_um is not None
+        else config.transition_width_13_90_um
+    )
+    if transition_x <= 0 or transition_y <= 0:
+        raise ValueError("transition widths must be positive")
+    return float(transition_x), float(transition_y)
+
+
+def _rounded_rectangle_sdf_um(
+    X: np.ndarray,
+    Y: np.ndarray,
+    width_um: float,
+    height_um: float,
+    radius_um: float,
+) -> np.ndarray:
+    radius_um = max(0.0, min(float(radius_um), width_um / 2.0, height_um / 2.0))
+    half_inner_x = width_um / 2.0 - radius_um
+    half_inner_y = height_um / 2.0 - radius_um
+    qx = np.abs(X) - half_inner_x
+    qy = np.abs(Y) - half_inner_y
+    outside = np.sqrt(np.maximum(qx, 0.0) ** 2 + np.maximum(qy, 0.0) ** 2)
+    inside = np.minimum(np.maximum(qx, qy), 0.0)
+    return outside + inside - radius_um
+
+
+def make_industrial_rounded_logistic_target(config: DOEConfig, grid: Grid) -> TargetResult:
+    X, Y = _focus_mesh_um(grid)
+    transition_x, transition_y = _transition_widths(config)
+    transition_ref = float(min(transition_x, transition_y))
+    corner_radius_um = config.corner_radius_um if config.corner_radius_um > 0 else transition_ref
+    corner_radius_um = min(corner_radius_um, config.target_width_um / 2.0, config.target_height_um / 2.0)
+    tail_end = float(config.controlled_tail_end_intensity)
+    threshold = float(config.free_region_threshold_intensity)
+    tail_width_um = (
+        float(config.controlled_tail_width_um)
+        if config.controlled_tail_width_um is not None
+        else 2.0 * transition_ref
+    )
+
+    if not (0.0 < threshold < 1.0):
+        raise ValueError("free_region_threshold_intensity must be between 0 and 1")
+    if not (0.0 < tail_end < threshold):
+        raise ValueError("controlled_tail_end_intensity must be between 0 and free_region_threshold_intensity")
+    if tail_width_um <= 0:
+        raise ValueError("controlled_tail_width_um must be positive")
+
+    sdf_um = _rounded_rectangle_sdf_um(
+        X,
+        Y,
+        config.target_width_um,
+        config.target_height_um,
+        corner_radius_um,
+    )
+    grad_y, grad_x = np.gradient(sdf_um, grid.focus_sampling_um, grid.focus_sampling_um)
+    grad_norm = np.sqrt(grad_x**2 + grad_y**2)
+    normal_x = np.divide(grad_x, grad_norm, out=np.zeros_like(grad_x), where=grad_norm > 0)
+    normal_y = np.divide(grad_y, grad_norm, out=np.zeros_like(grad_y), where=grad_norm > 0)
+    transition_local = np.maximum(
+        np.abs(normal_x) * transition_x + np.abs(normal_y) * transition_y,
+        1e-9,
+    )
+    s = transition_local / 4.055
+    base_intensity = 1.0 / (1.0 + np.exp(np.clip(sdf_um / s, -80.0, 80.0)))
+    constrained_intensity = np.array(base_intensity, copy=True)
+
+    d13 = s * np.log(1.0 / threshold - 1.0)
+    finite = base_intensity >= threshold
+    distance_past_13 = sdf_um - d13
+    tail = (distance_past_13 > 0.0) & (distance_past_13 <= tail_width_um)
+    u = np.clip(distance_past_13[tail] / tail_width_um, 0.0, 1.0)
+    constrained_intensity[tail] = tail_end + (threshold - tail_end) * 0.5 * (1.0 + np.cos(np.pi * u))
+    finite = finite | tail
+
+    noise = ~finite
+    amplitude = np.full((grid.n, grid.n), np.nan, dtype=np.float64)
+    amplitude[finite] = np.sqrt(constrained_intensity[finite])
+
+    roi = base_intensity >= 0.5
+    core = base_intensity >= config.metric_uniform_level
+    transition = finite & ~core & ~tail
+    zero = np.zeros_like(finite, dtype=bool)
+
+    return TargetResult(
+        amplitude=amplitude,
+        roi_mask=roi,
+        core_mask=core,
+        transition_mask=transition | tail,
+        noise_mask=noise,
+        zero_mask=zero,
+        signal_mask=finite,
+        finite_mask=finite,
+        intensity=constrained_intensity,
+    )
+
+
 def make_target(config: DOEConfig, grid: Grid) -> TargetResult:
     target = config.target.lower()
     if target == "hard":
@@ -197,4 +300,6 @@ def make_target(config: DOEConfig, grid: Grid) -> TargetResult:
         return make_soft_rectangle(config, grid)
     if target in {"industrial_logistic", "industrial", "logistic"}:
         return make_industrial_logistic_target(config, grid)
+    if target in {"industrial_rounded_logistic", "rounded_logistic", "industrial_rounded"}:
+        return make_industrial_rounded_logistic_target(config, grid)
     raise ValueError(f"Unknown target type: {config.target!r}")
