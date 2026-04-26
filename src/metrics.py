@@ -300,6 +300,59 @@ def _derivative_lobes_for_side(
     return {"first": first, "strongest": strongest}
 
 
+def _outside_peaks_for_side(
+    coord_um: np.ndarray,
+    smoothed_profile: np.ndarray,
+    edge_um: float,
+    side: str,
+    margin_um: float,
+    search_width_um: float,
+    prominence_threshold: float,
+) -> dict:
+    if not np.isfinite(edge_um) or search_width_um <= 0:
+        return {"first": _empty_lobe(), "strongest": _empty_lobe()}
+    if side == "left":
+        mask = (coord_um >= edge_um - search_width_um) & (coord_um <= edge_um - margin_um)
+        outward_coord = edge_um - coord_um
+    else:
+        mask = (coord_um >= edge_um + margin_um) & (coord_um <= edge_um + search_width_um)
+        outward_coord = coord_um - edge_um
+
+    valid = np.flatnonzero(mask & np.isfinite(smoothed_profile))
+    if valid.size < 3:
+        return {"first": _empty_lobe(), "strongest": _empty_lobe()}
+    valid = valid[np.argsort(outward_coord[valid])]
+    s = outward_coord[valid]
+    values = smoothed_profile[valid]
+    derivative = np.gradient(values, s)
+    candidates = []
+    for local_pos in range(1, valid.size - 1):
+        if not np.all(np.isfinite([derivative[local_pos - 1], derivative[local_pos + 1], values[local_pos]])):
+            continue
+        derivative_crosses_peak = derivative[local_pos - 1] > 0.0 and derivative[local_pos + 1] < 0.0
+        local_max = values[local_pos] >= values[local_pos - 1] and values[local_pos] >= values[local_pos + 1]
+        if not (derivative_crosses_peak or local_max):
+            continue
+        global_idx = int(valid[local_pos])
+        prominence = _peak_prominence(smoothed_profile, global_idx, valid)
+        if prominence < prominence_threshold:
+            continue
+        candidates.append(
+            {
+                "peak_rel": float(values[local_pos]),
+                "distance_um": float(s[local_pos]),
+                "position_um": float(coord_um[global_idx]),
+                "prominence": prominence,
+            }
+        )
+
+    if not candidates:
+        return {"first": _empty_lobe(), "strongest": _empty_lobe()}
+    first = min(candidates, key=lambda item: item["distance_um"])
+    strongest = max(candidates, key=lambda item: item["peak_rel"])
+    return {"first": first, "strongest": strongest}
+
+
 def side_lobe_analysis_for_profile(
     coord_um: np.ndarray,
     normalized_profile: np.ndarray,
@@ -340,6 +393,24 @@ def side_lobe_analysis_for_profile(
         search_width_um,
         prominence_threshold,
     )
+    outside_peak_left = _outside_peaks_for_side(
+        coord_um,
+        smoothed,
+        left_edge,
+        "left",
+        crossing_margin_um,
+        search_width_um,
+        prominence_threshold,
+    )
+    outside_peak_right = _outside_peaks_for_side(
+        coord_um,
+        smoothed,
+        right_edge,
+        "right",
+        crossing_margin_um,
+        search_width_um,
+        prominence_threshold,
+    )
     return {
         "edge_13": edge_13,
         "smoothed_profile": smoothed,
@@ -352,12 +423,16 @@ def side_lobe_analysis_for_profile(
         "outside_max_right": outside_right,
         "derivative_left": derivative_left,
         "derivative_right": derivative_right,
+        "outside_peak_left": outside_peak_left,
+        "outside_peak_right": outside_peak_right,
     }
 
 
 def _side_lobe_metrics(axis_label: str, analysis: dict) -> dict:
     left = analysis["derivative_left"]
     right = analysis["derivative_right"]
+    peak_left = analysis["outside_peak_left"]
+    peak_right = analysis["outside_peak_right"]
     outside_left = analysis["outside_max_left"]
     outside_right = analysis["outside_max_right"]
     return {
@@ -386,7 +461,39 @@ def _side_lobe_metrics(axis_label: str, analysis: dict) -> dict:
         f"first_side_lobe_prominence_{axis_label}_right": right["first"]["prominence"],
         f"strongest_side_lobe_prominence_{axis_label}_left": left["strongest"]["prominence"],
         f"strongest_side_lobe_prominence_{axis_label}_right": right["strongest"]["prominence"],
+        f"first_outside_peak_{axis_label}_left_rel_to_core": peak_left["first"]["peak_rel"],
+        f"first_outside_peak_{axis_label}_right_rel_to_core": peak_right["first"]["peak_rel"],
+        f"strongest_outside_peak_{axis_label}_left_rel_to_core": peak_left["strongest"]["peak_rel"],
+        f"strongest_outside_peak_{axis_label}_right_rel_to_core": peak_right["strongest"]["peak_rel"],
+        f"first_outside_peak_distance_{axis_label}_left_um": peak_left["first"]["distance_um"],
+        f"first_outside_peak_distance_{axis_label}_right_um": peak_right["first"]["distance_um"],
+        f"strongest_outside_peak_distance_{axis_label}_left_um": peak_left["strongest"]["distance_um"],
+        f"strongest_outside_peak_distance_{axis_label}_right_um": peak_right["strongest"]["distance_um"],
+        f"first_outside_peak_position_{axis_label}_left_um": peak_left["first"]["position_um"],
+        f"first_outside_peak_position_{axis_label}_right_um": peak_right["first"]["position_um"],
+        f"strongest_outside_peak_position_{axis_label}_left_um": peak_left["strongest"]["position_um"],
+        f"strongest_outside_peak_position_{axis_label}_right_um": peak_right["strongest"]["position_um"],
     }
+
+
+def _axis_peak_summary(axis_label: str, metrics: dict, kind: str) -> float:
+    return max(
+        (
+            metrics[f"{kind}_outside_peak_{axis_label}_left_rel_to_core"],
+            metrics[f"{kind}_outside_peak_{axis_label}_right_rel_to_core"],
+        ),
+        key=lambda value: value if np.isfinite(value) else -np.inf,
+    )
+
+
+def _outside_peak_detection_count(metrics: dict) -> int:
+    keys = [
+        "strongest_outside_peak_x_left_rel_to_core",
+        "strongest_outside_peak_x_right_rel_to_core",
+        "strongest_outside_peak_y_left_rel_to_core",
+        "strongest_outside_peak_y_right_rel_to_core",
+    ]
+    return sum(np.isfinite(metrics[key]) for key in keys)
 
 
 def _stronger_peak(left: dict, right: dict) -> dict:
@@ -585,6 +692,15 @@ def compute_metrics(config: DOEConfig, grid: Grid, target: TargetResult, intensi
         "size_50_x": output_measurements["output_size_50_x_um"],
         "size_50_y": output_measurements["output_size_50_y_um"],
     }
+    metrics.update(
+        {
+            "first_outside_peak_x_rel_to_core": _axis_peak_summary("x", metrics, "first"),
+            "first_outside_peak_y_rel_to_core": _axis_peak_summary("y", metrics, "first"),
+            "strongest_outside_peak_x_rel_to_core": _axis_peak_summary("x", metrics, "strongest"),
+            "strongest_outside_peak_y_rel_to_core": _axis_peak_summary("y", metrics, "strongest"),
+            "outside_peak_detection_count": _outside_peak_detection_count(metrics),
+        }
+    )
     return metrics
 
 

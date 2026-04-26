@@ -28,6 +28,11 @@ SUMMARY_COLUMNS = [
     "center_profile_std_y",
     "outside_max_x_rel_to_core",
     "outside_max_y_rel_to_core",
+    "first_outside_peak_x_rel_to_core",
+    "first_outside_peak_y_rel_to_core",
+    "strongest_outside_peak_x_rel_to_core",
+    "strongest_outside_peak_y_rel_to_core",
+    "outside_peak_detection_count",
     "first_derivative_side_lobe_x_rel_to_core",
     "first_derivative_side_lobe_y_rel_to_core",
     "strongest_derivative_side_lobe_x_rel_to_core",
@@ -103,6 +108,11 @@ def row_from_summary(variant: str, mraf_factor: float, summary: dict) -> dict:
         "center_profile_std_y": metrics["center_profile_std_y"],
         "outside_max_x_rel_to_core": metrics["outside_max_x_rel_to_core"],
         "outside_max_y_rel_to_core": metrics["outside_max_y_rel_to_core"],
+        "first_outside_peak_x_rel_to_core": metrics["first_outside_peak_x_rel_to_core"],
+        "first_outside_peak_y_rel_to_core": metrics["first_outside_peak_y_rel_to_core"],
+        "strongest_outside_peak_x_rel_to_core": metrics["strongest_outside_peak_x_rel_to_core"],
+        "strongest_outside_peak_y_rel_to_core": metrics["strongest_outside_peak_y_rel_to_core"],
+        "outside_peak_detection_count": metrics["outside_peak_detection_count"],
         "first_derivative_side_lobe_x_rel_to_core": first_derivative_peak(metrics, "x"),
         "first_derivative_side_lobe_y_rel_to_core": first_derivative_peak(metrics, "y"),
         "strongest_derivative_side_lobe_x_rel_to_core": strongest_derivative_peak(metrics, "x"),
@@ -154,15 +164,12 @@ def selection_key_size(row: dict) -> tuple[float, float]:
 
 def selection_key_lobe(row: dict) -> tuple[int, float, float]:
     strongest = finite_max(
-        [
-            row["strongest_derivative_side_lobe_x_rel_to_core"],
-            row["strongest_derivative_side_lobe_y_rel_to_core"],
-        ]
+        [row["strongest_outside_peak_x_rel_to_core"], row["strongest_outside_peak_y_rel_to_core"]]
     )
     if not math.isfinite(strongest):
         strongest = 0.0
     outside = max(float(row["outside_max_x_rel_to_core"]), float(row["outside_max_y_rel_to_core"]))
-    return (int(row["derivative_side_lobe_detection_count"]), strongest, outside)
+    return (int(row["outside_peak_detection_count"]), strongest, outside)
 
 
 def main() -> None:
@@ -197,9 +204,9 @@ def main() -> None:
             f"  out50={row['output_size_50_x_um']:.3f}x{row['output_size_50_y_um']:.3f}, "
             f"rms90={row['rms_90']:.6g}, "
             f"outside={row['outside_max_x_rel_to_core']:.3g}/{row['outside_max_y_rel_to_core']:.3g}, "
-            f"deriv={row['strongest_derivative_side_lobe_x_rel_to_core']:.3g}/"
-            f"{row['strongest_derivative_side_lobe_y_rel_to_core']:.3g}, "
-            f"count={row['derivative_side_lobe_detection_count']}",
+            f"peak={row['strongest_outside_peak_x_rel_to_core']:.3g}/"
+            f"{row['strongest_outside_peak_y_rel_to_core']:.3g}, "
+            f"count={row['outside_peak_detection_count']}",
             flush=True,
         )
 

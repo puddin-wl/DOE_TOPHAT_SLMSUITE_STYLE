@@ -643,7 +643,7 @@ def _save_edge_spike_diagnostic(
         f"output_size_50_x/y={metrics['output_size_50_x_um']:.1f}/{metrics['output_size_50_y_um']:.1f} um, "
         f"rms_90={metrics['rms_90']:.4g}, "
         f"outside_max_x/y={metrics['outside_max_x_rel_to_core']:.3g}/{metrics['outside_max_y_rel_to_core']:.3g}, "
-        f"strongest_deriv_xR/yR={metrics['strongest_side_lobe_peak_x_right_rel_to_core']:.3g}/{metrics['strongest_side_lobe_peak_y_right_rel_to_core']:.3g}"
+        f"outside_peak_x/y={metrics['strongest_outside_peak_x_rel_to_core']:.3g}/{metrics['strongest_outside_peak_y_rel_to_core']:.3g}"
     )
     fig.suptitle(title, fontsize=10)
     fig.tight_layout(rect=[0, 0, 1, 0.90])
@@ -686,11 +686,11 @@ def _draw_spike_zoom_axis(
         ax.axvline(edge, color="tab:purple", lw=1.0, ls="--", alpha=0.75, label="output 13.5% crossing")
 
     outside = analysis[f"outside_max_{side}"]
-    first = analysis[f"derivative_{side}"]["first"]
-    strongest = analysis[f"derivative_{side}"]["strongest"]
+    first = analysis[f"outside_peak_{side}"]["first"]
+    strongest = analysis[f"outside_peak_{side}"]["strongest"]
     _scatter_lobe(ax, outside, "x", "tab:orange", "outside_max")
-    _scatter_lobe(ax, first, "o", "tab:blue", "first derivative side lobe")
-    _scatter_lobe(ax, strongest, "*", "tab:red", "strongest derivative side lobe")
+    _scatter_lobe(ax, first, "o", "tab:blue", "first outside intensity peak")
+    _scatter_lobe(ax, strongest, "*", "tab:red", "strongest outside intensity peak")
 
     derivative_ax.plot(coord_um[view], analysis["derivative"][view], lw=1.0, color="0.25", label="dI/dx smoothed")
     derivative_ax.axhline(0.0, color="0.65", lw=0.8)

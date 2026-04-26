@@ -416,6 +416,87 @@ Still no guard band needed.
 The best balanced case has zero derivative side-lobe detections under the nominal metric, and the remaining issue is mostly x-size precomp rather than uncontrolled free-region spikes.
 ```
 
+## 2026-04-26 Outside-Peak Metric And Target Definition Audit
+
+No new DOE sweep was run for this update. The change is diagnostic-only plus target-definition documentation.
+
+Side/outside peak detection correction:
+
+```text
+The earlier derivative-lobe fields used raw x/y coordinate direction.
+That can confuse left and right edges because the outward direction is reversed at the left edge.
+The corrected outside-peak metric converts each side to outward coordinate s measured away from the 13.5% crossing.
+It then detects true outside intensity peaks where dI/ds changes from positive to negative.
+```
+
+New primary fields:
+
+```text
+first_outside_peak_x_rel_to_core
+first_outside_peak_y_rel_to_core
+strongest_outside_peak_x_rel_to_core
+strongest_outside_peak_y_rel_to_core
+outside_peak_detection_count
+```
+
+Legacy fields:
+
+```text
+first_side_lobe_peak_* and strongest_side_lobe_peak_* are retained for compatibility only.
+Because those fields used the raw coordinate direction, the left-side detections can correspond to valleys rather than outward-coordinate peaks.
+Use the outside_peak fields for decisions.
+outside_max_x/y_rel_to_core is still kept as a reference-only max value, not a side-lobe definition.
+```
+
+The existing `mraf_fine_20260426-025728` artifacts were re-analyzed without rerunning DOE. The montage images now mark true outside intensity peaks.
+
+Updated mraf fine summary under corrected outside-peak metric:
+
+```text
+mraf   output50_x/y     rms90     outside_max_x/y  outside_peak_x/y  outside_peak_count
+0.350  335.198/120.295  0.018881 0.0927/0.0463    nan/nan           0
+0.375  335.088/120.216  0.018806 0.0957/0.0494    nan/nan           0
+0.400  334.992/120.124  0.018719 0.0997/0.0532    nan/nan           0
+0.425  334.902/120.025  0.018615 0.1050/0.0575    0.0941/nan       2
+0.450  334.749/119.892  0.018522 0.1125/0.0632    0.1001/nan       2
+```
+
+This correction does not change the previous practical recommendation:
+
+```text
+Use mraf_factor = 0.40 as the next base.
+It has no true outside peak detections under the nominal metric, better size/rms than 0.35/0.375, and avoids the true outside x peaks appearing at 0.425/0.45.
+```
+
+Industrial logistic target audit:
+
+```text
+src/config.py default free_region_threshold_intensity = 0.135
+src/config.py default descending_edge_mode = none
+src/config.py default tail_to_free = false
+src/config.py default descending_edge_end_intensity = 0.03
+src/config.py default descending_edge_width_um = 0.0
+```
+
+With those defaults, `industrial_logistic` constrains only down to 13.5% intensity. Pixels below 13.5% become NaN/free region:
+
+```text
+base_intensity = min(ix, iy)
+finite = base_intensity >= free_region_threshold_intensity
+amplitude[finite] = sqrt(constrained_intensity[finite])
+noise = ~finite
+```
+
+Therefore, for the current recommended recipe (`descending_edge_mode=none`, `tail_to_free=false`), 13.5% below is not controlled by the target; it is MRAF free/noise region.
+
+Geometry note:
+
+```text
+industrial_logistic uses min(ix, iy), so it is a soft-edged rectangle with separable x/y logistic edges.
+It is not a strict rounded-rectangle signed-distance target.
+If a future target should match an LBTEK-style rounded rectangle, add a new industrial_rounded_logistic target instead of treating min(ix, iy) as rounded geometry.
+```
+
 ## Current Industrial Transition Check
 
 Best aggressive edge candidate from the first focused 2048 sweep:
