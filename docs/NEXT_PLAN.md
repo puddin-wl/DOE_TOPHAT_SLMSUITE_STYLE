@@ -212,3 +212,26 @@ Outputs:
 2. Generate `compare_frozen_rounded_smooth_tail.csv` from existing metrics plus the new single case.
 3. Generate profile, edge-spike, and focal-intensity three-way comparison plots.
 4. Update `RESULTS.md` with validation results while keeping frozen best as baseline.
+
+## Next Plan: Smooth-Tail Failure Postmortem
+
+Date: 2026-04-26
+
+Scope:
+- Do not run solve_phase.
+- Do not sweep.
+- Do not run 4096.
+- Do not change frozen best recipe, MRAF factor, feedback exponent, descending edge, guard band, or target definitions.
+- Analyze existing artifacts and source code only.
+
+Objects:
+1. Frozen best: `artifacts/mraf_fine_20260426-025728/mraf_0p400`.
+2. Old rounded single: `artifacts/rounded_logistic_single_20260426/rounded_logistic_single`.
+3. Failed smooth-tail single: `artifacts/smooth_tail_single_20260426-211623/smooth_tail_single`.
+
+Tasks:
+1. Compare target masks, finite/core/transition/tail/free areas, target intensity sums, and invalid-value flags.
+2. Review `src/mraf.py`, `src/targets.py`, and `src/config.py` for NaN handling, finite-pixel constraints, WGS feedback, floors/clipping, and low-intensity-tail risk.
+3. Inspect failed smooth-tail artifacts: config, metrics, focal intensity, target amplitude, phase, peak location, and central energy concentration.
+4. Generate visual evidence showing central-spot collapse and target mask/power differences.
+5. Write `postmortem_summary.json` and update `RESULTS.md` without recommending smooth-tail sweeps.
