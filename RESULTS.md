@@ -497,6 +497,79 @@ It is not a strict rounded-rectangle signed-distance target.
 If a future target should match an LBTEK-style rounded rectangle, add a new industrial_rounded_logistic target instead of treating min(ix, iy) as rounded geometry.
 ```
 
+## 2026-04-26 Rounded Logistic Target Preview
+
+Current best recipe remains frozen:
+
+```text
+target                         industrial_logistic
+target_size_50_x/y_um          330 / 116
+transition_width_13_90_x/y_um  12 / 16
+mraf_factor                    0.40
+feedback_exponent              2.0
+descending_edge_mode           none
+tail_to_free                   false
+```
+
+No new DOE solve was run for this update. No sweep, no 4096, no guard band, and no change to current best results.
+
+Target audit reminder:
+
+```text
+industrial_logistic uses base_intensity = min(ix, iy).
+It is a soft-edged rectangle with separable x/y logistic edges, not a rounded-rectangle signed-distance target.
+With free_region_threshold_intensity = 0.135, descending_edge_mode = none, and tail_to_free = false,
+industrial_logistic constrains only down to 13.5%; below 13.5% is NaN/free region.
+```
+
+New candidate target added:
+
+```text
+industrial_rounded_logistic
+```
+
+Purpose:
+
+```text
+1. Use rounded-rectangle signed distance field geometry instead of min(ix, iy).
+2. Keep target_size_50_x/y_um as the 50% FWHM dimensions.
+3. Keep transition_width_13_90_x/y_um as 13.5%-90% edge controls.
+4. Continue weak target control below 13.5% down to controlled_tail_end_intensity before entering free/noise region.
+5. Reduce future outside peak / shoulder risk by combining rounded geometry with a controlled low-intensity tail.
+```
+
+New target controls:
+
+```text
+corner_radius_um                  default: min(transition_width_13_90_x_um, transition_width_13_90_y_um) when not explicitly set
+controlled_tail_end_intensity     default: 0.03
+controlled_tail_width_um          default: 2 * min(transition_width_13_90_x_um, transition_width_13_90_y_um)
+```
+
+Preview command, target-only and no `solve_phase`:
+
+```powershell
+python preview_targets.py --n 2048 --target-size-50-x-um 330 --target-size-50-y-um 116 --transition-width-13-90-x-um 12 --transition-width-13-90-y-um 16 --out-root artifacts\target_preview_rounded_20260426
+```
+
+Preview outputs:
+
+```text
+artifacts\target_preview_rounded_20260426\industrial_logistic_intensity.png
+artifacts\target_preview_rounded_20260426\industrial_rounded_logistic_intensity.png
+artifacts\target_preview_rounded_20260426\target_center_profile_comparison.png
+artifacts\target_preview_rounded_20260426\industrial_logistic_regions.png
+artifacts\target_preview_rounded_20260426\industrial_rounded_logistic_regions.png
+```
+
+Interpretation:
+
+```text
+The center x/y profiles preserve the intended 50%, 90%, and 13.5% crossings.
+The rounded target changes corner geometry and adds a controlled tail region below 13.5% before free/noise.
+This target is only a future candidate; it is not promoted over the frozen current best recipe until a separate small DOE test is explicitly requested.
+```
+
 ## Current Industrial Transition Check
 
 Best aggressive edge candidate from the first focused 2048 sweep:
