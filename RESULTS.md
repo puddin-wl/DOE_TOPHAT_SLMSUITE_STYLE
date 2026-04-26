@@ -618,6 +618,79 @@ Therefore it is a candidate, not a replacement for the frozen best.
 Frozen best remains industrial_logistic + mraf_factor=0.40.
 ```
 
+## 2026-04-26 industrial_rounded_logistic Shape Diagnosis
+
+This is a target-only and result-only diagnosis. No new DOE solve was run, no sweep was added, no 4096 run was started, and the frozen best recipe remains unchanged:
+
+```text
+target = industrial_logistic
+mraf_factor = 0.40
+feedback_exponent = 2.0
+descending_edge_mode = none
+```
+
+Diagnostic command:
+
+```powershell
+python analyze_rounded_shape.py
+```
+
+Diagnostic output:
+
+```text
+artifacts\target_shape_diagnostics_20260426-205945
+artifacts\target_shape_diagnostics_20260426-205945\diagnosis_summary.json
+artifacts\target_shape_diagnostics_20260426-205945\rounded_target_x_profile_with_thresholds.png
+artifacts\target_shape_diagnostics_20260426-205945\rounded_target_y_profile_with_thresholds.png
+artifacts\target_shape_diagnostics_20260426-205945\rounded_target_x_profile_derivatives.png
+artifacts\target_shape_diagnostics_20260426-205945\rounded_target_y_profile_derivatives.png
+artifacts\target_shape_diagnostics_20260426-205945\logistic_vs_rounded_profile_overlay.png
+artifacts\target_shape_diagnostics_20260426-205945\rounded_target_region_masks.png
+artifacts\target_shape_diagnostics_20260426-205945\output_x_profile_frozen_vs_rounded.png
+artifacts\target_shape_diagnostics_20260426-205945\output_y_profile_frozen_vs_rounded.png
+artifacts\target_shape_diagnostics_20260426-205945\outside_region_frozen_vs_rounded.png
+artifacts\target_shape_diagnostics_20260426-205945\edge_spike_frozen_vs_rounded_montage.png
+```
+
+Target definition audit:
+
+```text
+industrial_rounded_logistic uses a rounded-rectangle signed distance field instead of base_intensity = min(ix, iy).
+corner_radius_um was left at 0 in config, so the effective default is min(transition_x, transition_y) = 12 um.
+controlled_tail_end_intensity = 0.03.
+controlled_tail_width_um was left unset, so the effective default is 2 * min(transition_x, transition_y) = 24 um.
+The target 50% profile size is preserved: x = 330.000 um, y = 116.016 um.
+The effective 13.5%-90% target widths are x = 13.997 um and y = 17.867 um, wider than nominal 12/16 um.
+```
+
+Mechanism interpretation:
+
+```text
+The rounded target is still only a candidate. Its purpose is rounded geometry plus weak control below 13.5%, not immediate replacement of the frozen best.
+The x outside_max reduction from 0.0997 to 0.0800 is consistent with reduced high-spatial-frequency corner content and weak tail control below the 13.5% edge.
+The y outside_max increase from 0.0532 to 0.0668 is plausible because the y dimension is short; the transition and 24 um controlled tail occupy a larger fraction of the target height, so energy can spread outside the y edge.
+The output50 increase and slightly worse rms_90 are also consistent with the rounded target's wider effective transition and extra low-intensity constrained tail.
+The efficiency increase from 0.8852 to 0.8942 likely comes from constraining and accepting more energy in the low-intensity tail region rather than from a uniformly better plateau.
+```
+
+Two-corner / two-bend diagnosis:
+
+```text
+The target profile itself contains a two-stage edge: plateau -> main logistic transition -> controlled tail -> free/noise region.
+This can create two visible bends: one around the high-intensity shoulder of the main logistic transition and another near the 13.5% handoff into the controlled tail.
+The main logistic-to-tail join is not strictly C1 continuous in the current implementation; the tail-to-free boundary ends the constrained target at 3% and then becomes NaN/free.
+Therefore the two platform-side angles are likely at least partly target-shape driven, not only a solve artifact.
+```
+
+Next-step note, not an optimization decision:
+
+```text
+Keep frozen best as the current baseline.
+Keep industrial_rounded_logistic as a candidate.
+If work continues, investigate target-shape details first, especially smoother main-to-tail continuity and y-direction tail proportion, before sweeping algorithm parameters.
+Do not promote rounded target over frozen best unless it later matches or improves outside peaks, size, and rms together.
+```
+
 ## Current Industrial Transition Check
 
 Best aggressive edge candidate from the first focused 2048 sweep:
