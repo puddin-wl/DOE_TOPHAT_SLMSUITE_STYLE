@@ -914,6 +914,80 @@ Core region should remain strongly constrained.
 Outside free region should remain free/noise, not forced to zero.
 ```
 
+## 2026-04-26 weak-tail / mask-weighted WGS preparation
+
+This is code preparation and target-only / solver-only diagnostics. No new DOE `solve_phase` run, no sweep, no 4096 run, no guard band, no baseline replacement, and no frozen-best recipe change were performed.
+
+Background:
+
+```text
+The smooth-tail target-only geometry was reasonable: 50% size, effective transition, and 13.5% continuity were improved.
+The smooth-tail DOE solve failed because the current solver treated the 3%-13.5% low-intensity tail as ordinary finite strong target pixels.
+The weak-tail direction introduces a third constraint type between finite strong target and NaN/free region.
+```
+
+Implementation summary:
+
+```text
+TargetResult now supports optional constraint_weight.
+Old targets keep constraint_weight = None.
+industrial_rounded_logistic_weak_tail reuses smooth-tail geometry but returns a weight map.
+Default weak-tail weights: core = 1.0, transition = 0.7, tail = 0.1, free = 0.0.
+Solver behavior is backward compatible: when constraint_weight is None, the legacy constraint and WGS update path is preserved.
+When constraint_weight exists, target enforcement and WGS feedback are weakened by mask weight, with current floor and ratio clipping safeguards.
+```
+
+Diagnostics command:
+
+```powershell
+python analyze_constraint_weight_map.py --check-only
+python analyze_constraint_weight_map.py
+```
+
+Diagnostics output:
+
+```text
+artifacts\constraint_weight_map_diagnostics_20260426-221527
+artifacts\constraint_weight_map_diagnostics_20260426-221527\target_mask_weight_comparison.csv
+artifacts\constraint_weight_map_diagnostics_20260426-221527\constraint_weight_summary.json
+artifacts\constraint_weight_map_diagnostics_20260426-221527\constraint_weight_map_weak_tail.png
+artifacts\constraint_weight_map_diagnostics_20260426-221527\target_intensity_logistic_vs_smooth_vs_weak_tail.png
+artifacts\constraint_weight_map_diagnostics_20260426-221527\target_weighted_regions_weak_tail.png
+artifacts\constraint_weight_map_diagnostics_20260426-221527\x_profile_intensity_and_weight.png
+artifacts\constraint_weight_map_diagnostics_20260426-221527\y_profile_intensity_and_weight.png
+```
+
+Target / weight map comparison:
+
+```text
+target_type                              finite_px  tail_px  tail_power_fraction  mean_weight  core_w  transition_w  tail_w
+industrial_logistic                         7261       0        0.0000             1.0000       1.0     1.0           nan
+industrial_rounded_logistic_smooth_tail    10207    2974        0.0142             1.0000       1.0     1.0           1.0
+industrial_rounded_logistic_weak_tail      10207    2974        0.0142             0.6705       1.0     0.7           0.1
+```
+
+Smoke checks passed:
+
+```text
+industrial_logistic returns constraint_weight = None.
+industrial_rounded_logistic_weak_tail returns constraint_weight with the same shape as target amplitude.
+Weights are in [0, 1].
+Free/noise region weight is 0.
+Tail weight is lower than core weight.
+Finite target amplitude is nonnegative and finite.
+NaN appears only in the free/noise region.
+```
+
+Current decision:
+
+```text
+Frozen best remains industrial_logistic + mraf_factor=0.40 + feedback_exponent=2.0 + descending_edge_mode=none.
+Rounded/tail path remains paused until weighted solver code is reviewed.
+Do not run a sweep yet.
+If code review confirms old targets are unchanged, the next allowed experiment is one single-case validation of industrial_rounded_logistic_weak_tail.
+Forbidden actions remain: sweep, 4096, descending_edge, guard band, and replacing the frozen baseline.
+```
+
 ## Current Industrial Transition Check
 
 Best aggressive edge candidate from the first focused 2048 sweep:

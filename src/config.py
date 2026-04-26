@@ -34,6 +34,13 @@ class DOEConfig:
     controlled_tail_width_um: float | None = None
     controlled_tail_width_x_um: float | None = None
     controlled_tail_width_y_um: float | None = None
+    core_constraint_weight: float = 1.0
+    transition_constraint_weight: float = 0.7
+    tail_constraint_weight: float = 0.1
+    enable_constraint_weight_map: bool = False
+    feedback_current_floor: float = 1e-6
+    feedback_ratio_clip_min: float = 0.05
+    feedback_ratio_clip_max: float = 20.0
     tail_to_free: bool = False
     tail_end_intensity: float = 0.03
     tail_width_um: float = 12.0

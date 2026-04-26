@@ -19,6 +19,7 @@ class TargetResult:
     signal_mask: np.ndarray
     finite_mask: np.ndarray
     intensity: np.ndarray | None = None
+    constraint_weight: np.ndarray | None = None
 
 
 def _focus_mesh_um(grid: Grid) -> tuple[np.ndarray, np.ndarray]:
@@ -400,6 +401,49 @@ def make_industrial_rounded_logistic_smooth_tail_target(config: DOEConfig, grid:
     )
 
 
+def _validate_constraint_weight_config(config: DOEConfig) -> None:
+    for name, value in (
+        ("core_constraint_weight", config.core_constraint_weight),
+        ("transition_constraint_weight", config.transition_constraint_weight),
+        ("tail_constraint_weight", config.tail_constraint_weight),
+    ):
+        if not (0.0 <= float(value) <= 1.0):
+            raise ValueError(f"{name} must be in [0, 1]")
+
+
+def make_industrial_rounded_logistic_weak_tail_target(config: DOEConfig, grid: Grid) -> TargetResult:
+    _validate_constraint_weight_config(config)
+    target = make_industrial_rounded_logistic_smooth_tail_target(config, grid)
+    intensity = target_intensity_local(target)
+    finite = target.finite_mask
+    tail = finite & (intensity < config.free_region_threshold_intensity)
+    core = finite & (intensity >= config.metric_uniform_level)
+    transition = finite & ~core & ~tail
+    constraint_weight = np.zeros_like(target.amplitude, dtype=np.float64)
+    constraint_weight[core] = float(config.core_constraint_weight)
+    constraint_weight[transition] = float(config.transition_constraint_weight)
+    constraint_weight[tail] = float(config.tail_constraint_weight)
+    constraint_weight[target.noise_mask] = 0.0
+    return TargetResult(
+        amplitude=target.amplitude,
+        roi_mask=target.roi_mask,
+        core_mask=target.core_mask,
+        transition_mask=target.transition_mask,
+        noise_mask=target.noise_mask,
+        zero_mask=target.zero_mask,
+        signal_mask=target.signal_mask,
+        finite_mask=target.finite_mask,
+        intensity=target.intensity,
+        constraint_weight=constraint_weight,
+    )
+
+
+def target_intensity_local(target: TargetResult) -> np.ndarray:
+    if target.intensity is not None:
+        return target.intensity
+    return target.amplitude**2
+
+
 def make_target(config: DOEConfig, grid: Grid) -> TargetResult:
     target = config.target.lower()
     if target == "hard":
@@ -416,4 +460,10 @@ def make_target(config: DOEConfig, grid: Grid) -> TargetResult:
         "industrial_rounded_smooth_tail",
     }:
         return make_industrial_rounded_logistic_smooth_tail_target(config, grid)
+    if target in {
+        "industrial_rounded_logistic_weak_tail",
+        "rounded_logistic_weak_tail",
+        "industrial_rounded_weak_tail",
+    }:
+        return make_industrial_rounded_logistic_weak_tail_target(config, grid)
     raise ValueError(f"Unknown target type: {config.target!r}")
