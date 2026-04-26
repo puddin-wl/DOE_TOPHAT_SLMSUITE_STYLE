@@ -399,3 +399,22 @@ Still forbidden:
 - Transition sweep.
 - Weight sweep.
 - Replacing the frozen baseline.
+
+## Next Plan: Roll Back to Rounded Logistic Single Validation
+
+Date: 2026-04-26
+
+Requested rollback target:
+- Artifact: `artifacts/rounded_logistic_single_20260426/rounded_logistic_single`.
+- Matching commit: `ec417dd Record rounded logistic single validation`.
+- Run time from artifact files: 2026-04-26 18:53 local file timestamp.
+
+Rollback approach:
+- Use a non-history-rewriting `git revert` of commits after `ec417dd`.
+- Do not delete local ignored artifacts.
+- Keep the current branch name `codex/engineering-tuning-flow`.
+- Push the rollback commit after verification.
+
+Expected result:
+- Source/docs tracked state returns to the rounded single validation point.
+- Later smooth-tail, weak-tail, postmortem, and precomp code/document changes are undone in tracked files.
