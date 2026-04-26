@@ -330,3 +330,42 @@ Still forbidden:
 - Guard band.
 - Replacing the frozen baseline.
 - Transition / MRAF / feedback sweeps.
+
+## Next Plan: Weak-Tail Target-Size Precomp Single Case
+
+Date: 2026-04-26
+
+Scope:
+- Run exactly one 2048 DOE solve for `industrial_rounded_logistic_weak_tail` with target-size precompensation.
+- Do not sweep.
+- Do not run 4096.
+- Do not change frozen best recipe, MRAF factor, feedback exponent, transition widths, weights, descending edge, or guard band behavior.
+- Do not replace the frozen baseline.
+
+Reason:
+- The first weak-tail case avoided central-spot collapse and reduced outside maxima, but output size expanded to about 402.0 x 137.9 um.
+- Precompensate target size once using approximate scale factors 402/330 and 137.9/116.
+
+Fixed precomp run:
+- `n=2048`
+- `iterations=100`
+- `method=wgs`
+- `phase_init=quadratic`
+- `target=industrial_rounded_logistic_weak_tail`
+- `target_size_50_x/y=271/101 um`
+- `transition_width_13_90_x/y=12/16 um`
+- `mraf_factor=0.40`
+- `feedback_exponent=2.0`
+- `descending_edge_mode=none`
+- `controlled_tail_end_intensity=0.03`
+- `controlled_tail_width_x/y=24/16 um`
+- `constraint weights core/transition/tail=1.0/0.7/0.1`
+
+Failure gate:
+- Stop if output collapses, `output50_x < 100`, `output50_y < 70`, `efficiency_13p5 < 0.20`, `rms_90 > 0.5`, or outside peaks appear with no rectangular shape.
+
+Decision policy:
+- Frozen best remains the current engineering baseline.
+- If precomp fails, stop weak-tail and return to solver/target design review.
+- If precomp is only a candidate, next step is at most one tiny target-size-only correction.
+- If precomp is strong, still keep frozen best until a later explicit confirmation experiment.
