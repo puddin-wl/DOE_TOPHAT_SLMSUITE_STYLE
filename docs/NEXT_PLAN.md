@@ -271,3 +271,37 @@ Forbidden next actions:
 - `descending_edge` tests.
 - Guard band.
 - Replacing frozen baseline.
+
+## Next Plan: Weak-Tail Single-Case Validation
+
+Date: 2026-04-26
+
+Scope:
+- First confirm backward compatibility for old targets and weighted behavior for `industrial_rounded_logistic_weak_tail`.
+- If compatibility passes, run exactly one 2048 DOE solve: `target=industrial_rounded_logistic_weak_tail`.
+- Do not sweep.
+- Do not run 4096.
+- Do not change frozen best recipe, MRAF factor, feedback exponent, descending edge, or guard band behavior.
+- Do not run the failed ordinary smooth-tail finite target again.
+
+Fixed weak-tail run:
+- `n=2048`
+- `iterations=100`
+- `method=wgs`
+- `phase_init=quadratic`
+- `target_size_50_x/y=330/116 um`
+- `transition_width_13_90_x/y=12/16 um`
+- `mraf_factor=0.40`
+- `feedback_exponent=2.0`
+- `descending_edge_mode=none`
+- `controlled_tail_end_intensity=0.03`
+- `controlled_tail_width_x/y=24/16 um`
+- `constraint weights core/transition/tail=1.0/0.7/0.1`
+
+Failure gate:
+- Stop if output collapses, `output50_x < 100`, `output50_y < 70`, `efficiency_13p5 < 0.20`, `rms_90 > 0.5`, or outside peaks appear with no rectangular shape.
+
+Decision policy:
+- Frozen best remains the current engineering baseline.
+- If weak-tail fails, do not sweep weak-tail parameters; return to solver design review.
+- If weak-tail forms a candidate, next step is at most one tiny weight-only single-parameter validation.
