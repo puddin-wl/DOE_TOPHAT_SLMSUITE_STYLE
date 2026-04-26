@@ -122,3 +122,24 @@ Tasks:
 4. Add controlled tail parameters below 13.5% for the new rounded target only.
 5. Preserve existing `industrial_logistic` behavior.
 6. Add `preview_targets.py` to render target intensity, center profiles, threshold crossings, and region masks without running `solve_phase`.
+
+## Next Plan: Single Rounded Target Validation
+
+Date: 2026-04-26
+
+Scope:
+- Run exactly one new 2048 DOE case: `target=industrial_rounded_logistic`.
+- Do not sweep.
+- Do not run 4096.
+- Do not change `mraf_factor=0.40` or `feedback_exponent=2.0`.
+- Do not enable legacy descending edge or guard band.
+- Compare against frozen best `industrial_logistic + mraf_factor=0.40`.
+
+Pre-run confirmations:
+1. `run_one.py` supports `target=industrial_rounded_logistic`.
+2. `controlled_tail_end_intensity` and `controlled_tail_width_um` are serialized in `config.json`.
+3. Target preview center profiles preserve 50% size and 13.5%-90% transition intent.
+
+Run:
+- `variant_name=rounded_logistic_single`
+- fixed recipe from frozen best except target type.
