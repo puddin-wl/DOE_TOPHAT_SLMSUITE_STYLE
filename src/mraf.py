@@ -39,7 +39,6 @@ def apply_focal_constraint(
     mraf_factor: float = 1.0,
     target_power_fraction: float | None = None,
     target_weights: np.ndarray | None = None,
-    constraint_weight: np.ndarray | None = None,
 ) -> tuple[np.ndarray, dict]:
     method = method.lower()
     noise = np.isnan(target_amplitude)
@@ -60,31 +59,13 @@ def apply_focal_constraint(
         desired_power = total_power * float(target_power_fraction)
         scale = np.sqrt(desired_power / target_norm) if target_norm > 0 else 1.0
 
-    target_constrained = scale * weights * phase
-    if constraint_weight is None:
-        constrained[signal] = target_constrained[signal]
-        weighted_signal = signal
-        active_weight = np.ones_like(weights)
-    else:
-        active_weight = np.nan_to_num(constraint_weight, nan=0.0, posinf=0.0, neginf=0.0).astype(
-            np.float64,
-            copy=False,
-        )
-        active_weight = np.clip(active_weight, 0.0, 1.0)
-        weighted_signal = signal & (active_weight > 0.0)
-        constrained[weighted_signal] = (
-            active_weight[weighted_signal] * target_constrained[weighted_signal]
-            + (1.0 - active_weight[weighted_signal]) * focal_field[weighted_signal]
-        )
+    constrained[signal] = scale * weights[signal] * phase[signal]
     constrained[zero] = 0.0
 
     if method == "gs":
         constrained[noise] = 0.0
     elif method == "mraf":
         constrained[noise] = mraf_factor * focal_field[noise]
-        if constraint_weight is not None:
-            free_like_signal = signal & (active_weight <= 0.0)
-            constrained[free_like_signal] = mraf_factor * focal_field[free_like_signal]
     else:
         raise ValueError(f"Unknown method: {method!r}")
 
@@ -107,11 +88,6 @@ def apply_focal_constraint(
             np.any(noise) and method == "mraf" and 0.0 < mraf_factor < 1.0
         ),
         "zero_region_forced_zero": bool(np.any(zero)),
-        "constraint_weight_enabled": bool(constraint_weight is not None),
-        "constraint_weight_min": float(np.min(active_weight[signal])) if np.any(signal) else 0.0,
-        "constraint_weight_max": float(np.max(active_weight[signal])) if np.any(signal) else 0.0,
-        "constraint_weight_mean": float(np.mean(active_weight[signal])) if np.any(signal) else 0.0,
-        "weighted_signal_pixels": int(np.count_nonzero(weighted_signal)),
     }
     return constrained, stats
 
@@ -122,9 +98,6 @@ def update_weights_leonardo(
     target_weights: np.ndarray,
     signal_mask: np.ndarray,
     exponent: float,
-    constraint_weight: np.ndarray | None = None,
-    current_floor: float = 1e-6,
-    ratio_clip: tuple[float, float] | None = None,
 ) -> np.ndarray:
     feedback = np.abs(focal_field)
     feedback_signal = np.zeros_like(weights)
@@ -137,24 +110,9 @@ def update_weights_leonardo(
 
     ratio = np.ones_like(weights)
     valid = signal_mask & (target_weights > 0)
-    if constraint_weight is None:
-        ratio[valid] = feedback_signal[valid] / target_weights[valid]
-    else:
-        safe_feedback = np.maximum(feedback_signal, current_floor)
-        ratio[valid] = safe_feedback[valid] / target_weights[valid]
+    ratio[valid] = feedback_signal[valid] / target_weights[valid]
     ratio[~np.isfinite(ratio)] = 1.0
     ratio[ratio <= 0] = 1.0
-    if constraint_weight is not None and ratio_clip is not None:
-        ratio[valid] = np.clip(ratio[valid], ratio_clip[0], ratio_clip[1])
-
-    if constraint_weight is not None:
-        active_weight = np.clip(
-            np.nan_to_num(constraint_weight, nan=0.0, posinf=0.0, neginf=0.0),
-            0.0,
-            1.0,
-        )
-        ratio[valid] = 1.0 + active_weight[valid] * (ratio[valid] - 1.0)
-        valid = valid & (active_weight > 0.0)
 
     updated = np.array(weights, copy=True)
     updated[valid] *= ratio[valid] ** (-exponent)
@@ -171,7 +129,6 @@ def solve_phase(
     initial_phase: np.ndarray,
     target_amplitude: np.ndarray,
     propagator: Propagator,
-    constraint_weight: np.ndarray | None = None,
 ) -> SolverResult:
     phase = np.array(initial_phase, copy=True)
     history: list[dict] = []
@@ -191,9 +148,6 @@ def solve_phase(
                 target_weights_reference,
                 signal_mask,
                 config.feedback_exponent,
-                constraint_weight=constraint_weight,
-                current_floor=config.feedback_current_floor,
-                ratio_clip=(config.feedback_ratio_clip_min, config.feedback_ratio_clip_max),
             )
         constrained_focal, stats = apply_focal_constraint(
             focal_field,
@@ -202,7 +156,6 @@ def solve_phase(
             mraf_factor=config.mraf_factor,
             target_power_fraction=config.target_power_fraction,
             target_weights=target_weights,
-            constraint_weight=constraint_weight,
         )
         back_field = propagator.backward(constrained_focal)
         phase = np.angle(back_field)

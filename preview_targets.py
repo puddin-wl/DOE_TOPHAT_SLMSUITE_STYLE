@@ -27,11 +27,6 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--corner-radius-um", type=float, default=None)
     parser.add_argument("--controlled-tail-end-intensity", type=float, default=0.03)
     parser.add_argument("--controlled-tail-width-um", type=float, default=None)
-    parser.add_argument("--controlled-tail-width-x-um", type=float, default=None)
-    parser.add_argument("--controlled-tail-width-y-um", type=float, default=None)
-    parser.add_argument("--core-constraint-weight", type=float, default=None)
-    parser.add_argument("--transition-constraint-weight", type=float, default=None)
-    parser.add_argument("--tail-constraint-weight", type=float, default=None)
     parser.add_argument("--out-root", default=None)
     return parser.parse_args()
 
@@ -146,21 +141,11 @@ def main() -> None:
         corner_radius_um=args.corner_radius_um,
         controlled_tail_end_intensity=args.controlled_tail_end_intensity,
         controlled_tail_width_um=args.controlled_tail_width_um,
-        controlled_tail_width_x_um=args.controlled_tail_width_x_um,
-        controlled_tail_width_y_um=args.controlled_tail_width_y_um,
-        core_constraint_weight=args.core_constraint_weight,
-        transition_constraint_weight=args.transition_constraint_weight,
-        tail_constraint_weight=args.tail_constraint_weight,
     )
     grid = make_grid(base_config)
 
     profiles: dict[str, np.ndarray] = {}
-    for target_name in (
-        "industrial_logistic",
-        "industrial_rounded_logistic",
-        "industrial_rounded_logistic_smooth_tail",
-        "industrial_rounded_logistic_weak_tail",
-    ):
+    for target_name in ("industrial_logistic", "industrial_rounded_logistic"):
         config = update_config(base_config, target=target_name)
         target = make_target(config, grid)
         intensity = target_intensity(target)

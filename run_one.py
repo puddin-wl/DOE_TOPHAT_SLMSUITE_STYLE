@@ -22,18 +22,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--focus-sampling-um", type=float, default=None)
     parser.add_argument("--iterations", type=int, default=None)
     parser.add_argument("--method", choices=["gs", "mraf", "wgs", "wgs-leonardo"], default=None)
-    parser.add_argument(
-        "--target",
-        choices=[
-            "hard",
-            "soft",
-            "industrial_logistic",
-            "industrial_rounded_logistic",
-            "industrial_rounded_logistic_smooth_tail",
-            "industrial_rounded_logistic_weak_tail",
-        ],
-        default=None,
-    )
+    parser.add_argument("--target", choices=["hard", "soft", "industrial_logistic", "industrial_rounded_logistic"], default=None)
     parser.add_argument("--target-size-50-x-um", type=float, default=None)
     parser.add_argument("--target-size-50-y-um", type=float, default=None)
     parser.add_argument("--corner-radius-um", type=float, default=None)
@@ -55,15 +44,6 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--descending-edge-end-intensity", type=float, default=None)
     parser.add_argument("--controlled-tail-end-intensity", type=float, default=None)
     parser.add_argument("--controlled-tail-width-um", type=float, default=None)
-    parser.add_argument("--controlled-tail-width-x-um", type=float, default=None)
-    parser.add_argument("--controlled-tail-width-y-um", type=float, default=None)
-    parser.add_argument("--core-constraint-weight", type=float, default=None)
-    parser.add_argument("--transition-constraint-weight", type=float, default=None)
-    parser.add_argument("--tail-constraint-weight", type=float, default=None)
-    parser.add_argument("--enable-constraint-weight-map", action="store_true", default=None)
-    parser.add_argument("--feedback-current-floor", type=float, default=None)
-    parser.add_argument("--feedback-ratio-clip-min", type=float, default=None)
-    parser.add_argument("--feedback-ratio-clip-max", type=float, default=None)
     parser.add_argument("--tail-to-free", action="store_true", default=None)
     parser.add_argument("--tail-end-intensity", type=float, default=None)
     parser.add_argument("--tail-width-um", type=float, default=None)
@@ -92,14 +72,7 @@ def run_variant(config: DOEConfig, out_dir: Path) -> dict:
     else:
         phase0 = initial_phase(config, grid, np.random.default_rng(config.seed))
 
-    result = solve_phase(
-        config,
-        input_amplitude,
-        phase0,
-        target.amplitude,
-        propagator,
-        constraint_weight=target.constraint_weight,
-    )
+    result = solve_phase(config, input_amplitude, phase0, target.amplitude, propagator)
     metrics = compute_metrics(config, grid, target, result.focal_intensity)
 
     config_payload = config.to_dict()
@@ -172,15 +145,6 @@ def main() -> None:
         descending_edge_end_intensity=args.descending_edge_end_intensity,
         controlled_tail_end_intensity=args.controlled_tail_end_intensity,
         controlled_tail_width_um=args.controlled_tail_width_um,
-        controlled_tail_width_x_um=args.controlled_tail_width_x_um,
-        controlled_tail_width_y_um=args.controlled_tail_width_y_um,
-        core_constraint_weight=args.core_constraint_weight,
-        transition_constraint_weight=args.transition_constraint_weight,
-        tail_constraint_weight=args.tail_constraint_weight,
-        enable_constraint_weight_map=args.enable_constraint_weight_map,
-        feedback_current_floor=args.feedback_current_floor,
-        feedback_ratio_clip_min=args.feedback_ratio_clip_min,
-        feedback_ratio_clip_max=args.feedback_ratio_clip_max,
         tail_to_free=args.tail_to_free,
         tail_end_intensity=args.tail_end_intensity,
         tail_width_um=args.tail_width_um,
