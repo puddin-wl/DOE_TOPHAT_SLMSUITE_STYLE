@@ -103,3 +103,22 @@ Tasks:
 4. Update edge diagnostic montage markers to show true outside intensity peaks.
 5. Audit industrial_logistic defaults: free_region_threshold_intensity, descending_edge_mode, tail_to_free, descending_edge end/width.
 6. Document that industrial_logistic uses min(ix, iy), i.e. a soft-edged rectangle, not a rounded-rectangle signed-distance target.
+
+## Next Plan: industrial_rounded_logistic Target Preview
+
+Date: 2026-04-26
+
+Scope:
+- Freeze current best recipe: `mraf_factor=0.40`, `target=industrial_logistic`, no new DOE solve.
+- Do not run sweeps.
+- Do not run 4096.
+- Do not change MRAF factor, feedback exponent, transition, guard band, or legacy descending-edge behavior.
+- Add a candidate target definition and target-only visualization.
+
+Tasks:
+1. Add `industrial_rounded_logistic` target using rounded-rectangle signed distance field.
+2. Keep `target_size_50_x/y_um` as the 50% FWHM dimensions.
+3. Keep transition width parameters as 13.5%-90% edge controls.
+4. Add controlled tail parameters below 13.5% for the new rounded target only.
+5. Preserve existing `industrial_logistic` behavior.
+6. Add `preview_targets.py` to render target intensity, center profiles, threshold crossings, and region masks without running `solve_phase`.
