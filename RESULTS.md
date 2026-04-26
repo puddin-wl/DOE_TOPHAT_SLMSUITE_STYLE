@@ -1072,6 +1072,82 @@ Record weak-tail as candidate only, not a replacement.
 Frozen best remains industrial_logistic + mraf_factor=0.40 + feedback_exponent=2.0 + descending_edge_mode=none.
 ```
 
+## 2026-04-26 industrial_rounded_logistic_weak_tail precomp single-case validation
+
+This run tested exactly one target-size precompensated weak-tail case. No sweep, no 4096 run, no MRAF/feedback/transition/weight change, no `descending_edge`, no guard band, no old-target deletion, and no baseline replacement were performed.
+
+Why precompensate size:
+
+```text
+The first weak-tail case avoided the smooth-tail central collapse but expanded to output50 = 402.0 x 137.9 um.
+Desired output is approximately 330 x 120 um.
+Approximate scale factors were x = 402.0 / 330 = 1.218 and y = 137.9 / 116 = 1.189.
+One precompensated target size was selected: target_size_50_x/y = 271 / 101 um.
+```
+
+Run command:
+
+```powershell
+python run_one.py --n 2048 --iterations 100 --method wgs --target industrial_rounded_logistic_weak_tail --phase-init quadratic --target-size-50-x-um 271 --target-size-50-y-um 101 --transition-width-13-90-x-um 12 --transition-width-13-90-y-um 16 --mraf-factor 0.40 --feedback-exponent 2.0 --descending-edge-mode none --controlled-tail-end-intensity 0.03 --controlled-tail-width-x-um 24 --controlled-tail-width-y-um 16 --core-constraint-weight 1.0 --transition-constraint-weight 0.7 --tail-constraint-weight 0.1 --out-root artifacts\weak_tail_precomp_single_20260426-224911 --variant-name weak_tail_precomp_single
+```
+
+Artifacts:
+
+```text
+artifacts\weak_tail_precomp_single_20260426-224911\weak_tail_precomp_single
+artifacts\weak_tail_precomp_single_20260426-224911\weak_tail_precomp_single\config.json
+artifacts\weak_tail_precomp_single_20260426-224911\weak_tail_precomp_single\metrics.json
+artifacts\weak_tail_precomp_single_20260426-224911\weak_tail_precomp_single\phase.npy
+artifacts\weak_tail_precomp_single_20260426-224911\weak_tail_precomp_single\target_amplitude.npy
+artifacts\weak_tail_precomp_single_20260426-224911\weak_tail_precomp_single\focal_intensity.npy
+artifacts\weak_tail_precomp_single_20260426-224911\weak_tail_precomp_single\focal_intensity.png
+artifacts\weak_tail_precomp_single_20260426-224911\weak_tail_precomp_single\center_profiles.png
+artifacts\weak_tail_precomp_single_20260426-224911\weak_tail_precomp_single\edge_spike_diagnostic.png
+```
+
+Failure gate:
+
+```text
+output_size_50_x_lt_100                  false
+output_size_50_y_lt_70                   false
+efficiency_13p5_lt_0.20                  false
+rms_90_gt_0.5                            false
+outside_peak_count_gt_0_and_no_rectangle false
+failure_gate_triggered                   false
+```
+
+Comparison outputs:
+
+```text
+artifacts\weak_tail_precomp_single_20260426-224911\compare_frozen_rounded_smooth_weak_tail_precomp.csv
+artifacts\weak_tail_precomp_single_20260426-224911\output_x_profile_frozen_vs_weak_tail_vs_precomp.png
+artifacts\weak_tail_precomp_single_20260426-224911\output_y_profile_frozen_vs_weak_tail_vs_precomp.png
+artifacts\weak_tail_precomp_single_20260426-224911\edge_spike_frozen_vs_weak_tail_vs_precomp_montage.png
+artifacts\weak_tail_precomp_single_20260426-224911\focal_intensity_frozen_vs_weak_tail_vs_precomp_montage.png
+```
+
+Key comparison:
+
+```text
+target_type                         target50   output50_x/y    size_err  trans_x/y      rms90     eff13   std_x/std_y     outside_x/y     peaks
+industrial_logistic                 330/116    334.992/120.124   5.116   18.694/21.491  0.018719 0.8852 0.0581/0.1014  0.0997/0.0532  0
+industrial_rounded_logistic         330/116    335.202/120.996   6.198   19.645/23.924  0.020215 0.8942 0.0580/0.0999  0.0800/0.0668  0
+weak_tail original                  330/116    402.000/137.855  89.855   10.428/34.843  0.018079 0.6318 0.0245/0.0587  0.0471/0.0512  0
+weak_tail precomp                   271/101    330.124/104.636  15.488   14.858/24.279  0.021805 0.6550 0.0144/0.1177  0.0665/0.0733  2
+```
+
+Decision:
+
+```text
+The precomp case did not collapse and passed the basic failure gate.
+X size was corrected well: output50_x = 330.124 um.
+Y size is too small: output50_y = 104.636 um versus desired 120 um.
+Derivative outside peaks appeared in x: outside_peak_detection_count = 2.
+rms_90 is slightly worse than frozen best and efficiency_13p5 = 0.655 remains far below frozen best, below the 0.80 candidate threshold.
+Therefore this is candidate only, not a strong candidate and not a baseline replacement.
+Frozen best remains industrial_logistic + mraf_factor=0.40 + feedback_exponent=2.0 + descending_edge_mode=none.
+```
+
 ## Current Industrial Transition Check
 
 Best aggressive edge candidate from the first focused 2048 sweep:

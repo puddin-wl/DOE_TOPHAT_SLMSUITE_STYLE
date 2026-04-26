@@ -369,3 +369,33 @@ Decision policy:
 - If precomp fails, stop weak-tail and return to solver/target design review.
 - If precomp is only a candidate, next step is at most one tiny target-size-only correction.
 - If precomp is strong, still keep frozen best until a later explicit confirmation experiment.
+
+## Outcome: Weak-Tail Precomp Single-Case Validation
+
+Date: 2026-04-26
+
+Result:
+- One target-size precompensated weak-tail case was run with target 271 x 101 um.
+- Failure gate did not trigger; the solver did not collapse to a central spot.
+- X output size corrected well to about 330.1 um.
+- Y output size is too small at about 104.6 um.
+- Efficiency remains low at about 0.655, below the 0.80 candidate threshold.
+- Derivative outside peaks appeared in x with detection count 2.
+- This is candidate only, not a strong candidate and not a replacement for frozen best.
+
+Next allowed step:
+- At most one very small target-size-only correction, if explicitly requested.
+- Do not adjust MRAF factor, feedback exponent, transition widths, or weights in the next step.
+
+If continuing, the only reasonable single correction is size-only, likely increasing target_size_50_y while keeping the rest fixed. Do not launch a size sweep.
+
+Still forbidden:
+- Sweep.
+- 4096 run.
+- `descending_edge`.
+- Guard band.
+- MRAF sweep.
+- Feedback sweep.
+- Transition sweep.
+- Weight sweep.
+- Replacing the frozen baseline.
