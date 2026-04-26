@@ -810,6 +810,110 @@ The frozen best remains industrial_logistic + mraf_factor=0.40 + feedback_expone
 Do not replace the baseline with smooth-tail based on this validation.
 ```
 
+## 2026-04-26 smooth-tail single-case failure postmortem
+
+This postmortem only reads existing code and artifacts. No new `solve_phase` run, no sweep, no 4096 run, no guard band, no recipe change, and no target deletion were performed.
+
+Analyzed artifacts:
+
+```text
+frozen best:
+artifacts\mraf_fine_20260426-025728\mraf_0p400
+
+old rounded single:
+artifacts\rounded_logistic_single_20260426\rounded_logistic_single
+
+failed smooth-tail single:
+artifacts\smooth_tail_single_20260426-211623\smooth_tail_single
+```
+
+Postmortem command:
+
+```powershell
+python analyze_smooth_tail_failure.py
+```
+
+Postmortem outputs:
+
+```text
+artifacts\smooth_tail_failure_postmortem_20260426-213431
+artifacts\smooth_tail_failure_postmortem_20260426-213431\target_mask_power_comparison.csv
+artifacts\smooth_tail_failure_postmortem_20260426-213431\solver_logic_review.md
+artifacts\smooth_tail_failure_postmortem_20260426-213431\failed_smooth_tail_artifact_review.json
+artifacts\smooth_tail_failure_postmortem_20260426-213431\postmortem_summary.json
+artifacts\smooth_tail_failure_postmortem_20260426-213431\failed_smooth_tail_focal_with_target_contours.png
+artifacts\smooth_tail_failure_postmortem_20260426-213431\failed_smooth_tail_x_y_profiles_with_target.png
+artifacts\smooth_tail_failure_postmortem_20260426-213431\target_mask_comparison_frozen_rounded_smooth.png
+artifacts\smooth_tail_failure_postmortem_20260426-213431\target_power_distribution_comparison.png
+artifacts\smooth_tail_failure_postmortem_20260426-213431\focal_intensity_comparison_frozen_rounded_smooth.png
+artifacts\smooth_tail_failure_postmortem_20260426-213431\center_profile_comparison_frozen_rounded_smooth.png
+```
+
+Target mask / power comparison:
+
+```text
+target_type                              finite_px  finite_area_um2  tail_area_um2  tail_power_fraction  min_finite_I  has_negative_I  has_hermite_overshoot
+industrial_logistic                         7261        45381.25          0.0          0.0000             0.1450        false           false
+industrial_rounded_logistic                10865        67906.25      22700.0          0.0459             0.0300        false           false
+industrial_rounded_logistic_smooth_tail     10207        63793.75      18587.5          0.0142             0.00946       false           false
+```
+
+Artifact review confirms a solver failure mode, not an ordinary trade-off:
+
+```text
+failure_classification              central spot collapse / target shape not formed
+output50_x/y_um                     37.781 / 49.040
+rms_90                              4.134987
+efficiency_13p5                     0.040850
+outside_peak_detection_count        4
+focal peak location                 x=-7.5 um, y=-17.5 um
+signal_pixels at last iteration     10207
+noise_pixels at last iteration      4184097
+noise_region_relaxed_not_zero       true
+```
+
+Interpretation:
+
+```text
+The smooth-tail target-only geometry was reasonable: 50% size and nominal transition were preserved better than the old rounded target.
+The DOE solve nevertheless failed catastrophically: the focal plane collapsed toward a small central spot rather than forming the rectangular flat-top.
+For this failed case, metrics such as outside_max and rms_90 are not meaningful as tuning indicators because the target shape itself was not formed.
+No Hermite overshoot, Inf, or negative target intensity was found, so the failure is unlikely to be a simple invalid-target-value bug.
+```
+
+Likely mechanism from `src/mraf.py` review:
+
+```text
+Target NaN pixels are treated as free/noise.
+Every finite nonzero target amplitude is treated as a signal pixel.
+WGS feedback updates all finite signal pixels, including 3%-13.5% low-intensity tail pixels.
+The feedback ratio is feedback_signal / target_weights, then weights are multiplied by ratio^(-feedback_exponent).
+There is no explicit current-amplitude floor, ratio clipping, or mask-dependent weak weighting for low-intensity tail pixels.
+With feedback_exponent = 2.0 and mraf_factor = 0.40, the low-intensity tail is still an ordinary finite constraint while free/noise is damped.
+The likely primary cause is current WGS/MRAF treating the low-intensity smooth tail as a normal finite strong constraint, causing unstable feedback / wrong energy allocation.
+```
+
+Decision:
+
+```text
+Do not continue sweeping smooth-tail tail_width.
+Do not sweep mraf_factor to rescue this target.
+Do not enable descending_edge.
+Do not run 4096.
+Do not replace frozen best.
+Frozen best remains industrial_logistic + mraf_factor=0.40 + feedback_exponent=2.0 + descending_edge_mode=none.
+```
+
+Future direction, if rounded/tail work continues later:
+
+```text
+Implement weak-tail constraint or mask-weighted WGS before trying more smooth-tail DOE runs.
+Core region should remain strongly constrained.
+90%-13.5% transition should be moderately constrained.
+13.5%-3% tail should be weakly constrained or used as a penalty only.
+Outside free region should remain free/noise, not forced to zero.
+```
+
 ## Current Industrial Transition Check
 
 Best aggressive edge candidate from the first focused 2048 sweep:
