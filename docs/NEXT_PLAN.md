@@ -235,3 +235,39 @@ Tasks:
 3. Inspect failed smooth-tail artifacts: config, metrics, focal intensity, target amplitude, phase, peak location, and central energy concentration.
 4. Generate visual evidence showing central-spot collapse and target mask/power differences.
 5. Write `postmortem_summary.json` and update `RESULTS.md` without recommending smooth-tail sweeps.
+
+## Next Plan: Weak-Tail / Mask-Weighted WGS Preparation
+
+Date: 2026-04-26
+
+Current baseline:
+- Frozen best remains `industrial_logistic + method=wgs + mraf_factor=0.40 + feedback_exponent=2.0 + descending_edge_mode=none`.
+- Do not replace the baseline in this task.
+
+Scope:
+- Do not run solve_phase.
+- Do not sweep.
+- Do not run 4096.
+- Do not enable descending_edge.
+- Do not add guard band.
+- Do not change MRAF factor or feedback exponent.
+- Prepare weak-tail / mask-weighted constraint code and diagnostics only.
+
+Tasks:
+1. Extend `TargetResult` with optional `constraint_weight` while keeping old targets backward compatible.
+2. Add `industrial_rounded_logistic_weak_tail`, reusing smooth-tail geometry but assigning low weight to the 13.5%-3% tail.
+3. Add config knobs for core/transition/tail constraint weights and a weight-map enable flag.
+4. Modify solver plumbing so old targets with no weight map follow the exact old path, while weighted targets can weakly blend constraints and WGS feedback.
+5. Add `analyze_constraint_weight_map.py` for target-only / solver-only diagnostics and `--check-only` smoke checks.
+6. Generate constraint-weight diagnostics without running DOE.
+7. Update `RESULTS.md` with preparation status and keep rounded/tail experiments paused until weighted solver is reviewed.
+
+Next allowed experiment after this task:
+- One single-case validation of `industrial_rounded_logistic_weak_tail`, only if diagnostics pass.
+
+Forbidden next actions:
+- Sweep.
+- 4096 run.
+- `descending_edge` tests.
+- Guard band.
+- Replacing frozen baseline.
