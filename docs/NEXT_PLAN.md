@@ -305,3 +305,28 @@ Decision policy:
 - Frozen best remains the current engineering baseline.
 - If weak-tail fails, do not sweep weak-tail parameters; return to solver design review.
 - If weak-tail forms a candidate, next step is at most one tiny weight-only single-parameter validation.
+
+## Outcome: Weak-Tail Single-Case Validation
+
+Date: 2026-04-26
+
+Result:
+- Compatibility check passed: old targets keep `constraint_weight=None`, and weak-tail returns a valid weight map.
+- One weak-tail single case was run at 2048 / 100 iterations.
+- Failure gate did not trigger: weak-tail avoided the smooth-tail central-spot collapse.
+- Weak-tail is candidate only, not a replacement: output size expanded to about 402 x 137.9 um and efficiency fell to 0.6318.
+- Frozen best remains `industrial_logistic + mraf_factor=0.40 + feedback_exponent=2.0 + descending_edge_mode=none`.
+
+Next allowed step:
+- At most one very small weight-only single-parameter validation, if explicitly requested.
+- Candidate knob should be a weight-map knob only, not transition, MRAF factor, feedback exponent, or target size.
+
+If weak-tail had failed, the next step would have been solver design review. Since it did not collapse but is oversized, do not sweep broadly; treat this as a candidate requiring careful weight-only review.
+
+Still forbidden:
+- Sweep.
+- 4096 run.
+- `descending_edge`.
+- Guard band.
+- Replacing the frozen baseline.
+- Transition / MRAF / feedback sweeps.

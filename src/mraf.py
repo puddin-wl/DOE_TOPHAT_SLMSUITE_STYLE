@@ -137,11 +137,14 @@ def update_weights_leonardo(
 
     ratio = np.ones_like(weights)
     valid = signal_mask & (target_weights > 0)
-    safe_feedback = np.maximum(feedback_signal, current_floor)
-    ratio[valid] = safe_feedback[valid] / target_weights[valid]
+    if constraint_weight is None:
+        ratio[valid] = feedback_signal[valid] / target_weights[valid]
+    else:
+        safe_feedback = np.maximum(feedback_signal, current_floor)
+        ratio[valid] = safe_feedback[valid] / target_weights[valid]
     ratio[~np.isfinite(ratio)] = 1.0
     ratio[ratio <= 0] = 1.0
-    if ratio_clip is not None:
+    if constraint_weight is not None and ratio_clip is not None:
         ratio[valid] = np.clip(ratio[valid], ratio_clip[0], ratio_clip[1])
 
     if constraint_weight is not None:

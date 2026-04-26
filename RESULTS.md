@@ -988,6 +988,90 @@ If code review confirms old targets are unchanged, the next allowed experiment i
 Forbidden actions remain: sweep, 4096, descending_edge, guard band, and replacing the frozen baseline.
 ```
 
+## 2026-04-26 industrial_rounded_logistic_weak_tail single-case validation
+
+This validation followed the two-step gate: first compatibility check, then exactly one 2048 DOE solve for `industrial_rounded_logistic_weak_tail`. No sweep, no 4096 run, no `descending_edge`, no guard band, no MRAF/feedback change, no ordinary smooth-tail rerun, and no baseline replacement were performed.
+
+Compatibility check:
+
+```text
+artifacts\weak_tail_single_20260426-223045\compatibility_check.json
+
+passed                                      true
+hard constraint_weight                      None
+soft constraint_weight                      None
+industrial_logistic constraint_weight       None
+industrial_rounded_logistic constraint_weight None
+industrial_rounded_logistic_smooth_tail constraint_weight None
+industrial_rounded_logistic_weak_tail       returns constraint_weight
+weak_tail weight range                      0.0 to 1.0
+free/noise weight                           0.0
+core/tail mean weight                       1.0 / 0.1
+feedback floor / ratio clipping             weighted path only
+```
+
+Run command:
+
+```powershell
+python run_one.py --n 2048 --iterations 100 --method wgs --target industrial_rounded_logistic_weak_tail --phase-init quadratic --target-size-50-x-um 330 --target-size-50-y-um 116 --transition-width-13-90-x-um 12 --transition-width-13-90-y-um 16 --mraf-factor 0.40 --feedback-exponent 2.0 --descending-edge-mode none --controlled-tail-end-intensity 0.03 --controlled-tail-width-x-um 24 --controlled-tail-width-y-um 16 --core-constraint-weight 1.0 --transition-constraint-weight 0.7 --tail-constraint-weight 0.1 --out-root artifacts\weak_tail_single_20260426-223045 --variant-name weak_tail_single
+```
+
+Artifacts:
+
+```text
+artifacts\weak_tail_single_20260426-223045\weak_tail_single
+artifacts\weak_tail_single_20260426-223045\weak_tail_single\config.json
+artifacts\weak_tail_single_20260426-223045\weak_tail_single\metrics.json
+artifacts\weak_tail_single_20260426-223045\weak_tail_single\phase.npy
+artifacts\weak_tail_single_20260426-223045\weak_tail_single\target_amplitude.npy
+artifacts\weak_tail_single_20260426-223045\weak_tail_single\focal_intensity.npy
+artifacts\weak_tail_single_20260426-223045\weak_tail_single\focal_intensity.png
+artifacts\weak_tail_single_20260426-223045\weak_tail_single\center_profiles.png
+artifacts\weak_tail_single_20260426-223045\weak_tail_single\edge_spike_diagnostic.png
+```
+
+Failure gate:
+
+```text
+output_size_50_x_lt_100       false
+output_size_50_y_lt_70        false
+efficiency_13p5_lt_0.20       false
+rms_90_gt_0.5                 false
+outside_peak_count_gt_0       false
+failure_gate_triggered        false
+```
+
+Four-way comparison outputs:
+
+```text
+artifacts\weak_tail_single_20260426-223045\compare_frozen_rounded_smooth_weak_tail.csv
+artifacts\weak_tail_single_20260426-223045\output_x_profile_frozen_vs_rounded_vs_smooth_vs_weak_tail.png
+artifacts\weak_tail_single_20260426-223045\output_y_profile_frozen_vs_rounded_vs_smooth_vs_weak_tail.png
+artifacts\weak_tail_single_20260426-223045\edge_spike_frozen_vs_rounded_vs_smooth_vs_weak_tail_montage.png
+artifacts\weak_tail_single_20260426-223045\focal_intensity_frozen_vs_rounded_vs_smooth_vs_weak_tail_montage.png
+```
+
+Key metrics:
+
+```text
+target_type                              output50_x/y     size_err   trans_x/y      rms90     eff13    std_x/std_y      outside_x/y    peak_count
+industrial_logistic                      334.992/120.124   5.116     18.694/21.491  0.018719 0.8852  0.0581/0.1014   0.0997/0.0532 0
+industrial_rounded_logistic              335.202/120.996   6.198     19.645/23.924  0.020215 0.8942  0.0580/0.0999   0.0800/0.0668 0
+industrial_rounded_logistic_smooth_tail   37.781/49.040  363.179      3.524/2.927   4.134987 0.0408  1.9755/11.1816  2.4181/5.2581 4
+industrial_rounded_logistic_weak_tail    402.000/137.855  89.855     10.428/34.843  0.018079 0.6318  0.0245/0.0587   0.0471/0.0512 0
+```
+
+Decision:
+
+```text
+Weak-tail passed the failure gate and avoided the previous central-spot collapse.
+It is not a strong candidate because output50 is much too large: 402.0 x 137.9 um, with size_error_abs_sum = 89.85 um.
+It did reduce outside_max and center-profile std relative to frozen best, and outside_peak_detection_count stayed 0.
+Efficiency fell to 0.6318, far below frozen best and old rounded.
+Record weak-tail as candidate only, not a replacement.
+Frozen best remains industrial_logistic + mraf_factor=0.40 + feedback_exponent=2.0 + descending_edge_mode=none.
+```
+
 ## Current Industrial Transition Check
 
 Best aggressive edge candidate from the first focused 2048 sweep:
