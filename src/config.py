@@ -32,6 +32,8 @@ class DOEConfig:
     descending_edge_end_intensity: float = 0.03
     controlled_tail_end_intensity: float = 0.03
     controlled_tail_width_um: float | None = None
+    controlled_tail_width_x_um: float | None = None
+    controlled_tail_width_y_um: float | None = None
     tail_to_free: bool = False
     tail_end_intensity: float = 0.03
     tail_width_um: float = 12.0

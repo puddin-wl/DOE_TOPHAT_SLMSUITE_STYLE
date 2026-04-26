@@ -27,6 +27,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--corner-radius-um", type=float, default=None)
     parser.add_argument("--controlled-tail-end-intensity", type=float, default=0.03)
     parser.add_argument("--controlled-tail-width-um", type=float, default=None)
+    parser.add_argument("--controlled-tail-width-x-um", type=float, default=None)
+    parser.add_argument("--controlled-tail-width-y-um", type=float, default=None)
     parser.add_argument("--out-root", default=None)
     return parser.parse_args()
 
@@ -141,11 +143,17 @@ def main() -> None:
         corner_radius_um=args.corner_radius_um,
         controlled_tail_end_intensity=args.controlled_tail_end_intensity,
         controlled_tail_width_um=args.controlled_tail_width_um,
+        controlled_tail_width_x_um=args.controlled_tail_width_x_um,
+        controlled_tail_width_y_um=args.controlled_tail_width_y_um,
     )
     grid = make_grid(base_config)
 
     profiles: dict[str, np.ndarray] = {}
-    for target_name in ("industrial_logistic", "industrial_rounded_logistic"):
+    for target_name in (
+        "industrial_logistic",
+        "industrial_rounded_logistic",
+        "industrial_rounded_logistic_smooth_tail",
+    ):
         config = update_config(base_config, target=target_name)
         target = make_target(config, grid)
         intensity = target_intensity(target)

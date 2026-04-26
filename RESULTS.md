@@ -691,6 +691,71 @@ If work continues, investigate target-shape details first, especially smoother m
 Do not promote rounded target over frozen best unless it later matches or improves outside peaks, size, and rms together.
 ```
 
+## 2026-04-26 Smooth-Tail Rounded Target Preview
+
+This is target-only work. No DOE solve, no sweep, no 4096 run, no guard band, and no frozen-best recipe change were made. The frozen best remains `industrial_logistic + mraf_factor=0.40 + feedback_exponent=2.0 + descending_edge_mode=none`.
+
+New candidate target:
+
+```text
+industrial_rounded_logistic_smooth_tail
+```
+
+Purpose:
+
+```text
+Keep rounded-rectangle SDF geometry.
+Keep target_size_50_x/y_um as 50% FWHM size.
+Keep transition_width_13_90_x/y_um as nominal 13.5%-90% controls.
+Continue weak control below 13.5% down to controlled_tail_end_intensity = 0.03.
+Replace the raised-cosine tail handoff with a Hermite-style smooth tail that matches the logistic slope at 13.5% and approaches zero slope at the tail end.
+Use separate default tail widths: x = 2 * transition_x = 24 um, y = 1 * transition_y = 16 um.
+```
+
+Target-only diagnostic command:
+
+```powershell
+python analyze_rounded_shape.py --smooth-tail-only
+```
+
+Target-only diagnostic output:
+
+```text
+artifacts\target_shape_smooth_tail_20260426-210956
+artifacts\target_shape_smooth_tail_20260426-210956\diagnosis_summary_smooth_tail.json
+artifacts\target_shape_smooth_tail_20260426-210956\smooth_tail_target_intensity.png
+artifacts\target_shape_smooth_tail_20260426-210956\smooth_tail_regions.png
+artifacts\target_shape_smooth_tail_20260426-210956\smooth_tail_x_profile_with_thresholds.png
+artifacts\target_shape_smooth_tail_20260426-210956\smooth_tail_y_profile_with_thresholds.png
+artifacts\target_shape_smooth_tail_20260426-210956\smooth_tail_x_profile_derivatives.png
+artifacts\target_shape_smooth_tail_20260426-210956\smooth_tail_y_profile_derivatives.png
+artifacts\target_shape_smooth_tail_20260426-210956\logistic_vs_rounded_vs_smooth_tail_profile_overlay.png
+```
+
+Summary from `diagnosis_summary_smooth_tail.json`:
+
+```text
+corner_radius_um_used                 12.0
+controlled_tail_width_x_um_used       24.0
+controlled_tail_width_y_um_used       16.0
+controlled_tail_end_intensity         0.03
+nominal_transition_x/y_um             12.0 / 16.0
+effective_transition_x/y_um           12.295 / 16.159
+x_profile_50_width_um                 330.000
+y_profile_50_width_um                 116.016
+max_abs_slope_jump_at_13p5_x/y        0.02018 / 0.01077
+```
+
+Interpretation:
+
+```text
+The smooth-tail candidate fixes the main problem found in the previous rounded target diagnosis: the 13.5% handoff no longer intentionally resets the slope to near zero.
+The effective 13.5%-90% widths are now much closer to nominal 12/16 than the previous rounded target's 13.997/17.867.
+The y tail default is now 16 um instead of 24 um, reducing the target-only risk that the short y dimension is over-extended by a wide low-intensity tail.
+The tail-to-free boundary is still the end of the constrained target at 3%, followed by NaN/free region; it is not an infinite continuous intensity function.
+This target is only a candidate. It should not replace the frozen best unless a later explicitly requested single-case DOE validation improves outside peaks, size, and rms together.
+```
+
 ## Current Industrial Transition Check
 
 Best aggressive edge candidate from the first focused 2048 sweep:

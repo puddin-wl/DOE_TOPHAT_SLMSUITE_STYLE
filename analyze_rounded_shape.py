@@ -28,6 +28,7 @@ ROUNDED_DIR = Path("artifacts/rounded_logistic_single_20260426/rounded_logistic_
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Target-only and result-only diagnosis for industrial_rounded_logistic.")
     parser.add_argument("--out-root", default=None)
+    parser.add_argument("--smooth-tail-only", action="store_true")
     return parser.parse_args()
 
 
@@ -76,10 +77,16 @@ def shade_regions(ax: plt.Axes, edges: dict[str, tuple[float, float, float]]) ->
                 ax.axvspan(min(span), max(span), color=colors[label], alpha=0.12, label=label if side == "left" else None)
 
 
-def save_profile_with_thresholds(path: Path, coord_um: np.ndarray, profile: np.ndarray, axis_label: str) -> dict:
+def save_profile_with_thresholds(
+    path: Path,
+    coord_um: np.ndarray,
+    profile: np.ndarray,
+    axis_label: str,
+    title_prefix: str = "rounded target",
+) -> dict:
     edges = crossings(coord_um, profile)
     fig, ax = plt.subplots(figsize=(8.2, 4.6), dpi=160)
-    ax.plot(coord_um, profile, lw=1.6, label="rounded target")
+    ax.plot(coord_um, profile, lw=1.6, label=title_prefix)
     shade_regions(ax, edges)
     for level, key, color in ((0.9, "90", "tab:green"), (0.5, "50", "tab:red"), (0.135, "13p5", "tab:purple"), (0.03, "3", "tab:orange")):
         ax.axhline(level, color=color, lw=0.8, alpha=0.55, label=f"{level:g}")
@@ -92,7 +99,7 @@ def save_profile_with_thresholds(path: Path, coord_um: np.ndarray, profile: np.n
     ax.set_ylim(-0.03, 1.08)
     ax.set_xlabel(f"{axis_label} (um)")
     ax.set_ylabel("target intensity")
-    ax.set_title(f"rounded target {axis_label} profile with thresholds")
+    ax.set_title(f"{title_prefix} {axis_label} profile with thresholds")
     ax.grid(alpha=0.25)
     ax.legend(frameon=False, fontsize=8, ncol=2)
     fig.tight_layout()
@@ -101,7 +108,14 @@ def save_profile_with_thresholds(path: Path, coord_um: np.ndarray, profile: np.n
     return edges
 
 
-def save_profile_derivatives(path: Path, coord_um: np.ndarray, profile: np.ndarray, edges: dict, axis_label: str) -> None:
+def save_profile_derivatives(
+    path: Path,
+    coord_um: np.ndarray,
+    profile: np.ndarray,
+    edges: dict,
+    axis_label: str,
+    title_prefix: str = "rounded target",
+) -> None:
     right50 = edges["50"][1]
     s = coord_um - right50
     mask = (s >= -35.0) & (s <= 80.0) & np.isfinite(profile)
@@ -126,21 +140,25 @@ def save_profile_derivatives(path: Path, coord_um: np.ndarray, profile: np.ndarr
                 ax.axvline(pos, color=color, lw=0.8, ls="--", alpha=0.55, label=f"{level:g}" if ax is axes[0] else None)
         ax.grid(alpha=0.25)
     axes[0].legend(frameon=False, fontsize=8, ncol=4)
-    fig.suptitle(f"rounded target {axis_label} outward profile derivatives")
+    fig.suptitle(f"{title_prefix} {axis_label} outward profile derivatives")
     fig.tight_layout()
     fig.savefig(path)
     plt.close(fig)
 
 
-def save_overlay(path: Path, grid, logistic_i: np.ndarray, rounded_i: np.ndarray) -> None:
+def save_overlay(path: Path, grid, logistic_i: np.ndarray, rounded_i: np.ndarray, smooth_i: np.ndarray | None = None) -> None:
     center = grid.n // 2
     x_view = np.abs(grid.x_um_focus) <= 260
     y_view = np.abs(grid.y_um_focus) <= 170
     fig, axes = plt.subplots(1, 2, figsize=(12, 4.2), dpi=160)
     axes[0].plot(grid.x_um_focus[x_view], logistic_i[center, x_view], label="industrial_logistic")
     axes[0].plot(grid.x_um_focus[x_view], rounded_i[center, x_view], label="industrial_rounded_logistic")
+    if smooth_i is not None:
+        axes[0].plot(grid.x_um_focus[x_view], smooth_i[center, x_view], label="industrial_rounded_logistic_smooth_tail")
     axes[1].plot(grid.y_um_focus[y_view], logistic_i[y_view, center], label="industrial_logistic")
     axes[1].plot(grid.y_um_focus[y_view], rounded_i[y_view, center], label="industrial_rounded_logistic")
+    if smooth_i is not None:
+        axes[1].plot(grid.y_um_focus[y_view], smooth_i[y_view, center], label="industrial_rounded_logistic_smooth_tail")
     for ax, label in zip(axes, ("x", "y")):
         for level, color in ((0.9, "tab:green"), (0.5, "tab:red"), (0.135, "tab:purple"), (0.03, "tab:orange")):
             ax.axhline(level, color=color, lw=0.8, alpha=0.45)
@@ -165,14 +183,21 @@ def region_mask(target, intensity: np.ndarray) -> np.ndarray:
     return mask
 
 
-def save_region_mask(path: Path, config: DOEConfig, grid, target, intensity: np.ndarray) -> None:
+def save_region_mask(
+    path: Path,
+    config: DOEConfig,
+    grid,
+    target,
+    intensity: np.ndarray,
+    title_prefix: str = "rounded target",
+) -> None:
     crop = np.abs(grid.x_um_focus) <= config.plot_crop_um
     data = region_mask(target, intensity)[np.ix_(crop, crop)]
     x = grid.x_um_focus[crop]
     y = grid.y_um_focus[crop]
     fig, ax = plt.subplots(figsize=(6.2, 5.4), dpi=160)
     im = ax.imshow(data, extent=[float(x[0]), float(x[-1]), float(y[0]), float(y[-1])], origin="lower", cmap="tab10", vmin=0, vmax=4)
-    ax.set_title("rounded target region mask\n1 tail, 2 main transition, 3 core, 4 free/NaN")
+    ax.set_title(f"{title_prefix} region mask\n1 tail, 2 main transition, 3 core, 4 free/NaN")
     ax.set_xlabel("x (um)")
     ax.set_ylabel("y (um)")
     fig.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
@@ -259,8 +284,146 @@ def save_montage(path: Path) -> None:
     out.save(path)
 
 
+def save_target_image(path: Path, config: DOEConfig, grid, intensity: np.ndarray, title: str) -> None:
+    crop = np.abs(grid.x_um_focus) <= config.plot_crop_um
+    data = np.ma.masked_invalid(intensity[np.ix_(crop, crop)])
+    x = grid.x_um_focus[crop]
+    y = grid.y_um_focus[crop]
+    fig, ax = plt.subplots(figsize=(6.2, 5.4), dpi=160)
+    im = ax.imshow(
+        data,
+        extent=[float(x[0]), float(x[-1]), float(y[0]), float(y[-1])],
+        origin="lower",
+        cmap="magma",
+        vmin=0,
+        vmax=1,
+    )
+    ax.contour(x, y, np.ma.filled(data, np.nan), levels=[0.03, 0.135, 0.5, 0.9], colors=["cyan", "purple", "white", "lime"], linewidths=0.8)
+    ax.set_title(title)
+    ax.set_xlabel("x (um)")
+    ax.set_ylabel("y (um)")
+    fig.colorbar(im, ax=ax, fraction=0.046, pad=0.04, label="target intensity")
+    fig.tight_layout()
+    fig.savefig(path)
+    plt.close(fig)
+
+
+def slope_jump_at_edge(coord_um: np.ndarray, profile: np.ndarray, edge_um: float, threshold: float = 0.135) -> float:
+    if not np.isfinite(edge_um):
+        return float("nan")
+    finite = np.isfinite(profile)
+    coord = coord_um[finite]
+    values = profile[finite]
+    if coord.size < 5:
+        return float("nan")
+    deriv = np.gradient(values, coord)
+    left_mask = coord < edge_um
+    right_mask = coord > edge_um
+    if not np.any(left_mask) or not np.any(right_mask):
+        return float("nan")
+    left_idx = np.where(left_mask)[0][-1]
+    right_idx = np.where(right_mask)[0][0]
+    return float(abs(abs(deriv[right_idx]) - abs(deriv[left_idx])))
+
+
+def smooth_tail_widths(config: DOEConfig) -> tuple[float, float]:
+    tx, ty = transition_settings(config)
+    width_x = (
+        float(config.controlled_tail_width_x_um)
+        if config.controlled_tail_width_x_um is not None
+        else float(config.controlled_tail_width_um)
+        if config.controlled_tail_width_um is not None
+        else 2.0 * tx
+    )
+    width_y = (
+        float(config.controlled_tail_width_y_um)
+        if config.controlled_tail_width_y_um is not None
+        else float(config.controlled_tail_width_um)
+        if config.controlled_tail_width_um is not None
+        else 1.0 * ty
+    )
+    return width_x, width_y
+
+
+def run_smooth_tail_diagnosis(args: argparse.Namespace) -> None:
+    out_root = Path(args.out_root) if args.out_root else Path("artifacts") / f"target_shape_smooth_tail_{datetime.now():%Y%m%d-%H%M%S}"
+    out_root.mkdir(parents=True, exist_ok=True)
+
+    base_config = config_from_json(ROUNDED_DIR / "config.json")
+    base_config = update_config(
+        base_config,
+        target="industrial_rounded_logistic_smooth_tail",
+        controlled_tail_width_um=None,
+        controlled_tail_width_x_um=None,
+        controlled_tail_width_y_um=None,
+    )
+    grid = make_grid(base_config)
+    center = grid.n // 2
+
+    logistic_i = target_intensity(make_target(update_config(base_config, target="industrial_logistic"), grid))
+    rounded_i = target_intensity(make_target(update_config(base_config, target="industrial_rounded_logistic"), grid))
+    smooth_target = make_target(base_config, grid)
+    smooth_i = target_intensity(smooth_target)
+
+    save_target_image(out_root / "smooth_tail_target_intensity.png", base_config, grid, smooth_i, "industrial_rounded_logistic_smooth_tail intensity")
+    save_region_mask(out_root / "smooth_tail_regions.png", base_config, grid, smooth_target, smooth_i, "smooth-tail target")
+    x_edges = save_profile_with_thresholds(
+        out_root / "smooth_tail_x_profile_with_thresholds.png",
+        grid.x_um_focus,
+        smooth_i[center, :],
+        "x",
+        "smooth-tail target",
+    )
+    y_edges = save_profile_with_thresholds(
+        out_root / "smooth_tail_y_profile_with_thresholds.png",
+        grid.y_um_focus,
+        smooth_i[:, center],
+        "y",
+        "smooth-tail target",
+    )
+    save_profile_derivatives(out_root / "smooth_tail_x_profile_derivatives.png", grid.x_um_focus, smooth_i[center, :], x_edges, "x", "smooth-tail target")
+    save_profile_derivatives(out_root / "smooth_tail_y_profile_derivatives.png", grid.y_um_focus, smooth_i[:, center], y_edges, "y", "smooth-tail target")
+    save_overlay(out_root / "logistic_vs_rounded_vs_smooth_tail_profile_overlay.png", grid, logistic_i, rounded_i, smooth_i)
+
+    tx, ty = transition_settings(base_config)
+    tail_x, tail_y = smooth_tail_widths(base_config)
+    corner_radius = base_config.corner_radius_um if base_config.corner_radius_um > 0 else min(tx, ty)
+    x_jump = max(
+        slope_jump_at_edge(grid.x_um_focus, smooth_i[center, :], x_edges["13p5"][0]),
+        slope_jump_at_edge(grid.x_um_focus, smooth_i[center, :], x_edges["13p5"][1]),
+    )
+    y_jump = max(
+        slope_jump_at_edge(grid.y_um_focus, smooth_i[:, center], y_edges["13p5"][0]),
+        slope_jump_at_edge(grid.y_um_focus, smooth_i[:, center], y_edges["13p5"][1]),
+    )
+    summary = {
+        "corner_radius_um_used": corner_radius,
+        "controlled_tail_width_x_um_used": tail_x,
+        "controlled_tail_width_y_um_used": tail_y,
+        "controlled_tail_end_intensity": base_config.controlled_tail_end_intensity,
+        "nominal_transition_x_um": tx,
+        "nominal_transition_y_um": ty,
+        "effective_transition_x_um": _transition_width(x_edges["90"], x_edges["13p5"]),
+        "effective_transition_y_um": _transition_width(y_edges["90"], y_edges["13p5"]),
+        "x_profile_50_width_um": x_edges["50"][2],
+        "y_profile_50_width_um": y_edges["50"][2],
+        "derivative_continuity_main_to_tail": "approximately C1 at 13.5% by construction: the smooth tail starts from the logistic value and matches the logistic slope before bending toward the tail end",
+        "derivative_continuity_tail_to_free": "tail endpoint slope is driven close to zero, but the constrained target still ends at 3% and becomes NaN/free; it is not an infinite continuous target",
+        "max_abs_slope_jump_at_13p5_x": x_jump,
+        "max_abs_slope_jump_at_13p5_y": y_jump,
+        "suspected_two_corner_risk": "lower than the raised-cosine rounded target because the 13.5% slope handoff is smoothed; residual risk remains at the finite tail-to-free boundary and from any remaining curvature change",
+        "recommendation": "keep frozen best as current baseline; keep smooth-tail rounded target as candidate only; decide later whether to run a single-case DOE validation",
+    }
+    write_json(out_root / "diagnosis_summary_smooth_tail.json", summary)
+    print(f"saved smooth-tail diagnosis: {out_root}")
+
+
 def main() -> None:
     args = parse_args()
+    if args.smooth_tail_only:
+        run_smooth_tail_diagnosis(args)
+        return
+
     out_root = Path(args.out_root) if args.out_root else Path("artifacts") / f"target_shape_diagnostics_{datetime.now():%Y%m%d-%H%M%S}"
     out_root.mkdir(parents=True, exist_ok=True)
 
